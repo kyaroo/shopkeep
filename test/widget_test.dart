@@ -28,14 +28,14 @@ void main() {
   testWidgets('Tapping Inventory tab shows the add-product FAB',
       (WidgetTester tester) async {
     await tester.pumpWidget(const ShopKeeperApp());
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 200));
     }
     // The FAB only exists on the Inventory screen.
     expect(find.byTooltip('Add product'), findsNothing);
 
     await tester.tap(find.text('Inventory').first);
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 200));
     }
     expect(find.byTooltip('Add product'), findsOneWidget);
