@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../models/cart.dart';
+import '../models/product_lookup_result.dart';
 import '../data/db.dart';
+import '../data/product_lookup.dart';
 
 class CartProvider with ChangeNotifier {
   final Cart _cart = Cart();
@@ -43,6 +45,11 @@ class CartProvider with ChangeNotifier {
     await Db().deleteProduct(id);
     await loadProducts(search: _lastSearch);
   }
+
+  /// Looks up an unknown barcode via Open Food Facts (after a local miss).
+  /// Returns null if not found or the network is unavailable.
+  Future<ProductLookupResult?> lookupProduct(String barcode) =>
+      ProductLookup().fetch(barcode);
 
   void addToCart(Product product, {int qty = 1}) {
     _cart.add(product, qty: qty);

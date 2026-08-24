@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
+import '../models/product.dart';
+import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../utils/money.dart';
 
@@ -16,22 +18,35 @@ class CheckoutScreen extends StatelessWidget {
     if (code == null || !context.mounted) return;
     final cart = Provider.of<CartProvider>(context, listen: false);
     final product = await _lookup(code, cart);
-    if (product == null) {
+    if (product != null) {
+      cart.addToCart(product);
+      return;
+    }
+    // Local miss: try Open Food Facts to capture the item, then add it.
+    final result = await cart.lookupProduct(code);
+    if (!context.mounted) return;
+    if (result == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Barcode not found in inventory')),
+          const SnackBar(
+              content: Text('Not in inventory and not found online — add it manually from Inventory')),
         );
       }
       return;
     }
-    cart.addToCart(product);
+    if (!context.mounted) return;
+    final created = await showDialog<Product>(
+      context: context,
+      builder: (_) => _NewFromScanDialog(result: result),
+    );
+    if (created != null && context.mounted) {
+      cart.addToCart(created);
+    }
   }
 
   Future<dynamic> _lookup(String code, CartProvider cart) async {
-    // Use DB through provider's products cache first, then DB.
     final inCache = cart.products.where((p) => p.barcode == code).firstOrNull;
     if (inCache != null) return inCache;
-    // Fallback: query DB directly via a barcode lookup.
     return Db().getByBarcode(code);
   }
 
@@ -165,3 +180,91 @@ class BarcodeScanPage extends StatelessWidget {
     );
   }
 }
+
+/// Shown at Checkout when a scanned barcode isn't in inventory but was
+/// found on Open Food Facts. Pre-fills name; manager sets the price, then
+/// it's saved to inventory and added to the cart.
+class _NewFromScanDialog extends StatefulWidget {
+  final ProductLookupResult result;
+  const _NewFromScanDialog({required this.result});
+
+  @override
+  State<_NewFromScanDialog> createState() => _NewFromScanDialogState();
+}
+
+class _NewFromScanDialogState extends State<_NewFromScanDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _price = TextEditingController();
+  final _stock = TextEditingController(text: '1');
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = widget.result;
+    return AlertDialog(
+      title: const Text('New item from scan'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(r.displayName,
+                  style: Theme.of(context).textTheme.titleMedium),
+              if (r.quantity != null) Text('Qty: ${r.quantity}'),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _price,
+                decoration: const InputDecoration(
+                    labelText: 'Your price (cents) *',
+                    hintText: 'e.g. 1990 = 19.90'),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  final n = int.tryParse(v?.trim() ?? '');
+                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                },
+              ),
+              TextFormField(
+                controller: _stock,
+                decoration: const InputDecoration(labelText: 'Stock qty *'),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  final n = int.tryParse(v?.trim() ?? '');
+                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        TextButton(
+          onPressed: _saving
+              ? null
+              : () async {
+                  if (!_formKey.currentState!.validate()) return;
+                  setState(() => _saving = true);
+                  final p = Product(
+                    name: r.displayName,
+                    barcode: r.barcode.isEmpty ? null : r.barcode,
+                    priceCents: int.parse(_price.text.trim()),
+                    stockQty: int.parse(_stock.text.trim()),
+                  );
+                  if (!mounted) return;
+                  final cart =
+                      Provider.of<CartProvider>(context, listen: false);
+                  final navigator = Navigator.of(context);
+                  await cart.saveProduct(p);
+                  if (mounted) navigator.pop(p);
+                },
+          child: const Text('Add & put in cart'),
+        ),
+      ],
+    );
+  }
+}
+

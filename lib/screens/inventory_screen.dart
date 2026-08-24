@@ -143,6 +143,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   final _stock = TextEditingController();
   final _barcode = TextEditingController();
   bool _saving = false;
+  bool _lookingUp = false;
+  bool _lookedUp = false;
 
   @override
   void initState() {
@@ -161,7 +163,28 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       context,
       MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
     );
-    if (code != null) setState(() => _barcode.text = code);
+    if (code == null || !mounted) return;
+    setState(() => _barcode.text = code);
+
+    // If this barcode is already in inventory, don't overwrite the name.
+    final inInventory =
+        Provider.of<CartProvider>(context, listen: false).products.any(
+      (p) => p.barcode == code,
+    );
+    if (inInventory) return;
+
+    // Offline-first: local miss -> try Open Food Facts to pre-fill.
+    setState(() => _lookingUp = true);
+    final result = await Provider.of<CartProvider>(context, listen: false)
+        .lookupProduct(code);
+    if (!mounted) return;
+    if (result != null) {
+      setState(() {
+        _name.text = result.displayName;
+        _lookedUp = true;
+      });
+    }
+    setState(() => _lookingUp = false);
   }
 
   Future<void> _save() async {
@@ -190,10 +213,24 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             children: [
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Name *'),
+                decoration: InputDecoration(
+                  labelText: 'Name *',
+                  suffixIcon: _lookingUp
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : null,
+                ),
                 validator: (v) =>
                     v == null || v.trim().isEmpty ? 'Required' : null,
               ),
+              if (_lookedUp)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('Auto-filled from barcode scan — set your price.',
+                      style: TextStyle(fontSize: 12, color: Colors.green)),
+                ),
               TextFormField(
                 controller: _price,
                 decoration: const InputDecoration(
