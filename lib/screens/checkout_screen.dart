@@ -77,7 +77,9 @@ class CheckoutBody extends StatelessWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () => cart.setQty(p, line.qty - 1),
+                            tooltip: 'qtyDecrease'.tr(),
+                            onPressed: () =>
+                                cart.setQty(p, line.qty - 1),
                           ),
                           SizedBox(
                             width: 28,
@@ -86,11 +88,18 @@ class CheckoutBody extends StatelessWidget {
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () => cart.setQty(p, line.qty + 1),
+                            tooltip: 'qtyIncrease'.tr(),
+                            onPressed: () =>
+                                cart.setQty(p, line.qty + 1),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.red),
+                            tooltip: 'removeFromCart'.tr(),
+                            onPressed: () => cart.removeAt(i),
                           ),
                         ],
                       ),
-                      onLongPress: () => cart.removeAt(i),
                     );
                   },
                 ),

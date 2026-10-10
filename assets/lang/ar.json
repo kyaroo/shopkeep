@@ -38,5 +38,9 @@
   "lowStockThresholdHint": "مثال: 5",
   "lowStock": "مخزون منخفض",
   "all": "الكل",
-  "inventoryOk": "المخزون سليم"
+  "inventoryOk": "المخزون سليم",
+  "moreActions": "المزيد من الإجراءات",
+  "qtyDecrease": "تقليل الكمية",
+  "qtyIncrease": "زيادة الكمية",
+  "removeFromCart": "إزالة من السلة"
 }

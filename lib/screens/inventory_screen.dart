@@ -138,10 +138,14 @@ class _InventoryBodyState extends State<InventoryBody> {
                                 : p.isLowStock
                                     ? Colors.orange
                                     : Colors.green,
-                            child: Text(
-                              '${p.stockQty}',
-                              style:
-                                  const TextStyle(color: Colors.white),
+                            child: Icon(
+                              p.isOutOfStock
+                                  ? Icons.remove_shopping_cart
+                                  : p.isLowStock
+                                      ? Icons.warning_amber
+                                      : Icons.check_circle,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
                           title: Text(p.name),
@@ -153,13 +157,26 @@ class _InventoryBodyState extends State<InventoryBody> {
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.edit),
+                                tooltip: 'editProduct'.tr(),
                                 onPressed: () =>
                                     showProductForm(context, existing: p),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
-                                onPressed: () => _confirmDelete(p),
+                              PopupMenuButton<String>(
+                                tooltip: 'moreActions'.tr(),
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) {
+                                  if (value == 'delete') {
+                                    _confirmDelete(p);
+                                  }
+                                },
+                                itemBuilder: (_) => [
+                                  PopupMenuItem<String>(
+                                    value: 'delete',
+                                    child: Text('delete'.tr(),
+                                        style: const TextStyle(
+                                            color: Colors.red)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

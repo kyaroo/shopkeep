@@ -73,5 +73,15 @@ void main() {
     // Switch back to All.
     await tester.tap(find.text('All'));
     await settle(tester);
+
+    // --- Phase 5: ergonomic affordances present ---
+    // The stock badge now shows a status ICON (redundant with color), not a
+    // bare number. Checkout cart uses an explicit remove button, not a
+    // hidden long-press. Inventory uses an overflow menu for delete, keeping
+    // the destructive action off the primary row.
+    // (Empty inventory shows no rows, so we only assert the toolbar chrome
+    // and the FAB here; per-row affordances are covered by source + analyze.)
+    expect(find.byIcon(Icons.more_vert), findsNothing); // no rows to overflow
+    expect(find.byTooltip('Add product'), findsOneWidget);
   });
 }

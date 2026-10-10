@@ -38,5 +38,9 @@
   "lowStockThresholdHint": "ex. 5",
   "lowStock": "Stock bas",
   "all": "Tout",
-  "inventoryOk": "Inventaire OK"
+  "inventoryOk": "Inventaire OK",
+  "moreActions": "Plus d'actions",
+  "qtyDecrease": "Diminuer la quantité",
+  "qtyIncrease": "Augmenter la quantité",
+  "removeFromCart": "Retirer du panier"
 }
