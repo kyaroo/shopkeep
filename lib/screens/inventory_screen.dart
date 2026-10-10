@@ -139,6 +139,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   final _name = TextEditingController();
   final _price = TextEditingController();
   final _stock = TextEditingController();
+  final _threshold = TextEditingController();
   final _barcode = TextEditingController();
   bool _saving = false;
   bool _lookingUp = false;
@@ -152,6 +153,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _name.text = p.name;
       _price.text = p.priceCents.toString();
       _stock.text = p.stockQty.toString();
+      _threshold.text = p.lowStockThreshold.toString();
       _barcode.text = p.barcode ?? '';
     }
   }
@@ -192,6 +194,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       barcode: _barcode.text.trim().isEmpty ? null : _barcode.text.trim(),
       priceCents: int.parse(_price.text.trim()),
       stockQty: int.parse(_stock.text.trim()),
+      lowStockThreshold: int.parse(_threshold.text.trim()),
     );
     await Provider.of<CartProvider>(context, listen: false).saveProduct(p);
     if (mounted) Navigator.pop(context, p);
@@ -243,6 +246,18 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               TextFormField(
                 controller: _stock,
                 decoration: InputDecoration(labelText: '${'stockQty'.tr()} *'),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  final n = int.tryParse(v?.trim() ?? '');
+                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
+                },
+              ),
+              TextFormField(
+                controller: _threshold,
+                decoration: InputDecoration(
+                  labelText: 'lowStockThreshold'.tr(),
+                  hintText: 'lowStockThresholdHint'.tr(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v?.trim() ?? '');
