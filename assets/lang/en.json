@@ -33,5 +33,10 @@
   "addAndCart": "Add & put in cart",
   "scanBarcode": "Scan barcode",
   "language": "Language",
-  "each": "each"
+  "each": "each",
+  "lowStockThreshold": "Low-stock alert at",
+  "lowStockThresholdHint": "e.g. 5",
+  "lowStock": "Low stock",
+  "all": "All",
+  "inventoryOk": "Inventory OK"
 }

@@ -33,5 +33,10 @@
   "addAndCart": "Ajouter au panier",
   "scanBarcode": "Scanner le code-barres",
   "language": "Langue",
-  "each": "l'unité"
+  "each": "l'unité",
+  "lowStockThreshold": "Alerte stock à",
+  "lowStockThresholdHint": "ex. 5",
+  "lowStock": "Stock bas",
+  "all": "Tout",
+  "inventoryOk": "Inventaire OK"
 }

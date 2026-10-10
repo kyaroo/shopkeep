@@ -33,5 +33,10 @@
   "addAndCart": "أضف وضعه في السلة",
   "scanBarcode": "مسح الباركود",
   "language": "اللغة",
-  "each": "للوحدة"
+  "each": "للوحدة",
+  "lowStockThreshold": "تنبيه عند مخزون",
+  "lowStockThresholdHint": "مثال: 5",
+  "lowStock": "مخزون منخفض",
+  "all": "الكل",
+  "inventoryOk": "المخزون سليم"
 }
