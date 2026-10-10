@@ -20,7 +20,7 @@ class Db {
     final path = join(dbPath, 'shopkeeper.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -28,11 +28,18 @@ class Db {
             name TEXT NOT NULL,
             barcode TEXT,
             price_cents INTEGER NOT NULL,
-            stock_qty INTEGER NOT NULL DEFAULT 0
+            stock_qty INTEGER NOT NULL DEFAULT 0,
+            low_stock_threshold INTEGER NOT NULL DEFAULT 5
           )
         ''');
         await db.execute(
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_product_barcode ON products(barcode)');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+              'ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER NOT NULL DEFAULT 5');
+        }
       },
     );
   }
