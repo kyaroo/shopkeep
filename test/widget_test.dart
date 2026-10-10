@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:shopkeeper/main.dart';
