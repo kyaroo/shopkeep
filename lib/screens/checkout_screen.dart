@@ -1,165 +1,155 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../providers/cart_provider.dart';
 import '../models/product.dart';
 import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../utils/money.dart';
 
-class CheckoutScreen extends StatelessWidget {
-  const CheckoutScreen({super.key});
-
-  Future<void> _scanToAdd(BuildContext context) async {
-    final code = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
-    );
-    if (code == null || !context.mounted) return;
-    final cart = Provider.of<CartProvider>(context, listen: false);
-    final product = await _lookup(code, cart);
-    if (product != null) {
-      cart.addToCart(product);
-      return;
-    }
-    // Local miss: try Open Food Facts to capture the item, then add it.
-    final result = await cart.lookupProduct(code);
-    if (!context.mounted) return;
-    if (result == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Not in inventory and not found online — add it manually from Inventory')),
-        );
-      }
-      return;
-    }
-    if (!context.mounted) return;
-    final created = await showDialog<Product>(
-      context: context,
-      builder: (_) => _NewFromScanDialog(result: result),
-    );
-    if (created != null && context.mounted) {
-      cart.addToCart(created);
-    }
+/// Top-level entry used by the HomePage FAB. Scans a barcode, adds to cart
+/// if known, or offers to capture the item from a barcode database.
+Future<void> scanToAdd(BuildContext context) async {
+  final code = await Navigator.push<String>(
+    context,
+    MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
+  );
+  if (code == null || !context.mounted) return;
+  final cart = Provider.of<CartProvider>(context, listen: false);
+  final product = await _lookup(code, cart);
+  if (product != null) {
+    cart.addToCart(product);
+    return;
   }
-
-  Future<dynamic> _lookup(String code, CartProvider cart) async {
-    final inCache = cart.products.where((p) => p.barcode == code).firstOrNull;
-    if (inCache != null) return inCache;
-    return Db().getByBarcode(code);
+  final result = await cart.lookupProduct(code);
+  if (!context.mounted) return;
+  if (result == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('notFoundOnline'.tr())),
+      );
+    }
+    return;
   }
+  if (!context.mounted) return;
+  final created = await showDialog<Product>(
+    context: context,
+    builder: (_) => _NewFromScanDialog(result: result),
+  );
+  if (created != null && context.mounted) {
+    cart.addToCart(created);
+  }
+}
+
+Future<dynamic> _lookup(String code, CartProvider cart) async {
+  final inCache = cart.products.where((p) => p.barcode == code).firstOrNull;
+  if (inCache != null) return inCache;
+  return Db().getByBarcode(code);
+}
+
+/// Body of the Checkout tab (the single AppBar/FAB live in HomePage).
+class CheckoutBody extends StatelessWidget {
+  const CheckoutBody({super.key});
 
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Checkout'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Scan to add',
-            onPressed: () => _scanToAdd(context),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: cart.isEmpty
-                ? const Center(
-                    child: Text(
-                        'Cart is empty.\nTap the scanner or a product to add.',
-                        textAlign: TextAlign.center),
-                  )
-                : ListView.separated(
-                    itemCount: cart.lines.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final line = cart.lines[i];
-                      final p = line.product;
-                      return ListTile(
-                        title: Text(p.name),
-                        subtitle: Text('${formatMoney(p.priceCents)} each'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () =>
-                                  cart.setQty(p, line.qty - 1),
-                            ),
-                            SizedBox(
-                              width: 28,
-                              child: Text('${line.qty}',
-                                  textAlign: TextAlign.center),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
-                              onPressed: () => cart.setQty(p, line.qty + 1),
-                            ),
-                          ],
-                        ),
-                        onLongPress: () => cart.removeAt(i),
-                      );
-                    },
-                  ),
-          ),
-          Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Items: ${cart.itemCount}',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text(
-                      'Total: ${formatMoney(cart.totalCents)}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+    return Column(
+      children: [
+        Expanded(
+          child: cart.isEmpty
+              ? Center(
+                  child: Text('cartEmpty'.tr(), textAlign: TextAlign.center),
+                )
+              : ListView.separated(
+                  itemCount: cart.lines.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final line = cart.lines[i];
+                    final p = line.product;
+                    return ListTile(
+                      title: Text(p.name),
+                      subtitle:
+                          Text('${formatMoney(p.priceCents)} ${'each'.tr()}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            onPressed: () => cart.setQty(p, line.qty - 1),
+                          ),
+                          SizedBox(
+                            width: 28,
+                            child: Text('${line.qty}',
+                                textAlign: TextAlign.center),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () => cart.setQty(p, line.qty + 1),
+                          ),
+                        ],
+                      ),
+                      onLongPress: () => cart.removeAt(i),
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: cart.isEmpty
-                        ? null
-                        : () async {
-                            try {
-                              final total = await cart.completeSale();
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Sale complete — ${formatMoney(total)}')),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text('Sale failed: $e'),
-                                      backgroundColor: Colors.red),
-                                );
-                              }
+        ),
+        Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('items'.tr(namedArgs: {'count': '${cart.itemCount}'}),
+                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'total'.tr(
+                        namedArgs: {'amount': formatMoney(cart.totalCents)}),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: cart.isEmpty
+                      ? null
+                      : () async {
+                          try {
+                            final total = await cart.completeSale();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('saleComplete'.tr(
+                                        namedArgs: {'amount': formatMoney(total)}))),
+                              );
                             }
-                          },
-                    icon: const Icon(Icons.check),
-                    label: const Text('Complete sale'),
-                  ),
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('saleFailed'.tr(
+                                        namedArgs: {'error': e.toString()})),
+                                    backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.check),
+                  label: Text('completeSale'.tr()),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -170,7 +160,7 @@ class BarcodeScanPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan barcode')),
+      appBar: AppBar(title: Text('scanBarcode'.tr())),
       body: MobileScanner(
         onDetect: (capture) {
           final code = capture.barcodes.firstOrNull?.rawValue;
@@ -202,7 +192,7 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
   Widget build(BuildContext context) {
     final r = widget.result;
     return AlertDialog(
-      title: const Text('New item from scan'),
+      title: Text('newItemFromScan'.tr()),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -212,26 +202,27 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
             children: [
               Text(r.displayName,
                   style: Theme.of(context).textTheme.titleMedium),
-              if (r.quantity != null) Text('Qty: ${r.quantity}'),
+              if (r.quantity != null) Text('${'qtyLabel'.tr()}: ${r.quantity}'),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _price,
-                decoration: const InputDecoration(
-                    labelText: 'Your price (cents) *',
-                    hintText: 'e.g. 1990 = 19.90'),
+                decoration: InputDecoration(
+                    labelText: '${'yourPrice'.tr()} *',
+                    hintText: 'priceHint'.tr()),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
                 },
               ),
               TextFormField(
                 controller: _stock,
-                decoration: const InputDecoration(labelText: 'Stock qty *'),
+                decoration:
+                    InputDecoration(labelText: '${'stockQty'.tr()} *'),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
                 },
               ),
             ],
@@ -241,7 +232,7 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+            child: Text('cancel'.tr())),
         TextButton(
           onPressed: _saving
               ? null
@@ -261,10 +252,9 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
                   await cart.saveProduct(p);
                   if (mounted) navigator.pop(p);
                 },
-          child: const Text('Add & put in cart'),
+          child: Text('addAndCart'.tr()),
         ),
       ],
     );
   }
 }
-

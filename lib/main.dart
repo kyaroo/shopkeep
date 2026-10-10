@@ -1,28 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
 
-void main() => runApp(const ShopKeeperApp());
+const supportedLocales = [
+  Locale('en'),
+  Locale('fr'),
+  Locale('ar'),
+];
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+  runApp(const ShopKeeperApp());
+}
 
 class ShopKeeperApp extends StatelessWidget {
   const ShopKeeperApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => CartProvider(),
-      child: MaterialApp(
-        title: 'ShopKeeper',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorSchemeSeed: Colors.teal,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        home: const HomePage(),
-        debugShowCheckedModeBanner: false,
+    return EasyLocalization(
+      supportedLocales: supportedLocales,
+      path: 'assets/lang',
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('en'),
+      useOnlyLangCode: true,
+      saveLocale: false,
+      child: ChangeNotifierProvider(
+        create: (_) => CartProvider(),
+        child: const LocalizedApp(),
       ),
+    );
+  }
+}
+
+class LocalizedApp extends StatelessWidget {
+  const LocalizedApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ShopKeeper',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.teal,
+        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : null,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: const HomePage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -36,20 +68,74 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _tab = 0;
-  final _pages = const [CheckoutScreen(), InventoryScreen()];
+
+  void _showLanguagePicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('language'.tr(),
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            ...supportedLocales.map((l) {
+              final label = {
+                'en': 'English',
+                'fr': 'Français',
+                'ar': 'العربية',
+              }[l.languageCode]!;
+              final isCurrent = context.locale.languageCode == l.languageCode;
+              return ListTile(
+                title: Text(label),
+                trailing: isCurrent ? const Icon(Icons.check) : null,
+                onTap: () {
+                  context.setLocale(l);
+                  Navigator.pop(context);
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_tab],
+      appBar: AppBar(
+        title: Text('appName'.tr()),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language),
+            tooltip: 'language'.tr(),
+            onPressed: _showLanguagePicker,
+          ),
+        ],
+      ),
+      body: _tab == 0 ? const CheckoutBody() : const InventoryBody(),
+      floatingActionButton: _tab == 0
+          ? FloatingActionButton(
+              onPressed: () => scanToAdd(context),
+              tooltip: 'scanToAdd'.tr(),
+              child: const Icon(Icons.qr_code_scanner),
+            )
+          : FloatingActionButton(
+              onPressed: () => showProductForm(context),
+              tooltip: 'addProduct'.tr(),
+              child: const Icon(Icons.add),
+            ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-              icon: Icon(Icons.point_of_sale), label: 'Checkout'),
+              icon: const Icon(Icons.point_of_sale), label: 'checkout'.tr()),
           NavigationDestination(
-              icon: Icon(Icons.inventory_2), label: 'Inventory'),
+              icon: const Icon(Icons.inventory_2), label: 'inventory'.tr()),
         ],
       ),
     );

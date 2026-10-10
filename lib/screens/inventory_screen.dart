@@ -1,18 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../utils/money.dart';
-
-class InventoryScreen extends StatefulWidget {
-  const InventoryScreen({super.key});
-
-  @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+/// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
+Future<void> showProductForm(BuildContext context, {Product? existing}) async {
+  final saved = await showDialog<Product>(
+    context: context,
+    builder: (_) => ProductFormDialog(existing: existing),
+  );
+  if (saved != null && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(existing != null
+              ? 'updated'.tr()
+              : 'addedToInventory'.tr())),
+    );
+  }
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+/// Body of the Inventory tab (the single AppBar/FAB live in HomePage).
+class InventoryBody extends StatefulWidget {
+  const InventoryBody({super.key});
+
+  @override
+  State<InventoryBody> createState() => _InventoryBodyState();
+}
+
+class _InventoryBodyState extends State<InventoryBody> {
   final TextEditingController _search = TextEditingController();
 
   @override
@@ -24,32 +41,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
   }
 
-  Future<void> _showProductForm({Product? existing}) async {
-    final saved = await showDialog<Product>(
-      context: context,
-      builder: (_) => ProductFormDialog(existing: existing),
-    );
-    if (saved != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(existing != null ? 'Updated' : 'Added to inventory')),
-      );
-    }
-  }
-
   Future<void> _confirmDelete(Product p) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete product?'),
-        content: Text('Remove "${p.name}" from inventory?'),
+        title: Text('deleteProduct'.tr()),
+        content: Text('removeConfirm'.tr(namedArgs: {'name': p.name})),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text('cancel'.tr())),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete', style: TextStyle(color: Colors.red))),
+              child: Text('delete'.tr(),
+                  style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -58,7 +63,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           .deleteProduct(p.id!);
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Deleted')));
+            .showSnackBar(SnackBar(content: Text('deleted'.tr())));
       }
     }
   }
@@ -67,63 +72,56 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final products = cart.products;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Inventory')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _search,
-              decoration: const InputDecoration(
-                hintText: 'Search by name or barcode',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: _search,
+            decoration: InputDecoration(
+              hintText: 'searchHint'.tr(),
+              prefixIcon: const Icon(Icons.search),
+              border: const OutlineInputBorder(),
             ),
           ),
-          Expanded(
-            child: cart.productsLoading
-                ? const Center(child: CircularProgressIndicator())
-                : products.isEmpty
-                    ? const Center(
-                        child: Text('No products yet.\nTap + to add one.',
-                            textAlign: TextAlign.center))
-                    : ListView.separated(
-                        itemCount: products.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final p = products[i];
-                          return ListTile(
-                            title: Text(p.name),
-                            subtitle: Text(
-                                '${formatMoney(p.priceCents)}  •  stock: ${p.stockQty}'
-                                '${p.barcode != null ? '  •  ${p.barcode}' : ''}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () => _showProductForm(existing: p),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.red),
-                                  onPressed: () => _confirmDelete(p),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showProductForm(),
-        tooltip: 'Add product',
-        child: const Icon(Icons.add),
-      ),
+        ),
+        Expanded(
+          child: cart.productsLoading
+              ? const Center(child: CircularProgressIndicator())
+              : products.isEmpty
+                  ? Center(
+                      child:
+                          Text('noProducts'.tr(), textAlign: TextAlign.center))
+                  : ListView.separated(
+                      itemCount: products.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final p = products[i];
+                        return ListTile(
+                          title: Text(p.name),
+                          subtitle: Text(
+                              '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'
+                              '${p.barcode != null ? '  •  ${p.barcode}' : ''}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () =>
+                                    showProductForm(context, existing: p),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                onPressed: () => _confirmDelete(p),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 }
@@ -166,14 +164,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (code == null || !mounted) return;
     setState(() => _barcode.text = code);
 
-    // If this barcode is already in inventory, don't overwrite the name.
     final inInventory =
         Provider.of<CartProvider>(context, listen: false).products.any(
       (p) => p.barcode == code,
     );
     if (inInventory) return;
 
-    // Offline-first: local miss -> try Open Food Facts to pre-fill.
     setState(() => _lookingUp = true);
     final result = await Provider.of<CartProvider>(context, listen: false)
         .lookupProduct(code);
@@ -204,7 +200,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing != null ? 'Edit product' : 'Add product'),
+      title: Text(widget.existing != null
+          ? 'editProduct'.tr()
+          : 'addProduct'.tr()),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -214,7 +212,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               TextFormField(
                 controller: _name,
                 decoration: InputDecoration(
-                  labelText: 'Name *',
+                  labelText: '${'nameRequired'.tr()} *',
                   suffixIcon: _lookingUp
                       ? const SizedBox(
                           width: 18,
@@ -223,40 +221,40 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       : null,
                 ),
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
+                    v == null || v.trim().isEmpty ? 'nameRequired'.tr() : null,
               ),
               if (_lookedUp)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text('Auto-filled from barcode scan — set your price.',
-                      style: TextStyle(fontSize: 12, color: Colors.green)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('autoFilledHint'.tr(),
+                      style: const TextStyle(fontSize: 12, color: Colors.green)),
                 ),
               TextFormField(
                 controller: _price,
-                decoration: const InputDecoration(
-                    labelText: 'Price (cents) *', hintText: 'e.g. 1990 = 19.90'),
+                decoration: InputDecoration(
+                    labelText: '${'yourPrice'.tr()} *',
+                    hintText: 'priceHint'.tr()),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
                 },
               ),
               TextFormField(
                 controller: _stock,
-                decoration: const InputDecoration(labelText: 'Stock qty *'),
+                decoration: InputDecoration(labelText: '${'stockQty'.tr()} *'),
                 keyboardType: TextInputType.number,
                 validator: (v) {
                   final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'Enter a whole number' : null;
+                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
                 },
               ),
               TextFormField(
                 controller: _barcode,
                 decoration: InputDecoration(
-                  labelText: 'Barcode (optional)',
+                  labelText: 'barcodeOptional'.tr(),
                   suffixIcon: IconButton(
-                      icon: const Icon(Icons.camera_alt),
-                      onPressed: _scan),
+                      icon: const Icon(Icons.camera_alt), onPressed: _scan),
                 ),
               ),
             ],
@@ -266,7 +264,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+            child: Text('cancel'.tr())),
         TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
@@ -274,7 +272,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save')),
+                : Text('save'.tr())),
       ],
     );
   }
@@ -286,7 +284,7 @@ class BarcodeScanPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan barcode')),
+      appBar: AppBar(title: Text('scanBarcode'.tr())),
       body: MobileScanner(
         onDetect: (capture) {
           final code = capture.barcodes.firstOrNull?.rawValue;
