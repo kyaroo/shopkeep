@@ -31,6 +31,7 @@ class InventoryBody extends StatefulWidget {
 
 class _InventoryBodyState extends State<InventoryBody> {
   final TextEditingController _search = TextEditingController();
+  bool _lowStockOnly = false;
 
   @override
   void initState() {
@@ -71,7 +72,10 @@ class _InventoryBodyState extends State<InventoryBody> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
-    final products = cart.products;
+    final allProducts = cart.products;
+    final products = _lowStockOnly
+        ? allProducts.where((p) => p.isLowStock).toList()
+        : allProducts;
     return Column(
       children: [
         Padding(
@@ -85,19 +89,61 @@ class _InventoryBodyState extends State<InventoryBody> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              FilterChip(
+                label: Text('all'.tr()),
+                selected: !_lowStockOnly,
+                onSelected: (_) => setState(() => _lowStockOnly = false),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: Text('lowStock'.tr()),
+                selected: _lowStockOnly,
+                onSelected: (_) => setState(() => _lowStockOnly = true),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         Expanded(
           child: cart.productsLoading
               ? const Center(child: CircularProgressIndicator())
               : products.isEmpty
                   ? Center(
-                      child:
-                          Text('noProducts'.tr(), textAlign: TextAlign.center))
+                      child: Text(
+                        _lowStockOnly
+                            ? 'inventoryOk'.tr()
+                            : 'noProducts'.tr(),
+                        textAlign: TextAlign.center,
+                        style: _lowStockOnly
+                            ? const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16)
+                            : null,
+                      ),
+                    )
                   : ListView.separated(
                       itemCount: products.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final p = products[i];
                         return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: p.isOutOfStock
+                                ? Colors.red
+                                : p.isLowStock
+                                    ? Colors.orange
+                                    : Colors.green,
+                            child: Text(
+                              '${p.stockQty}',
+                              style:
+                                  const TextStyle(color: Colors.white),
+                            ),
+                          ),
                           title: Text(p.name),
                           subtitle: Text(
                               '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'

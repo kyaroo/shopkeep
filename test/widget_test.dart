@@ -63,5 +63,16 @@ void main() {
     await settle(tester);
     // Add-product FAB now visible on the Inventory tab.
     expect(find.byTooltip('Add product'), findsOneWidget);
+
+    // --- Phase 4: low-stock filter chips present ---
+    expect(find.text('Low stock'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    // Tapping 'Low stock' does not crash and keeps the chip selected.
+    await tester.tap(find.text('Low stock'));
+    await settle(tester);
+    expect(find.text('Low stock'), findsOneWidget);
+    // Switch back to All.
+    await tester.tap(find.text('All'));
+    await settle(tester);
   });
 }
