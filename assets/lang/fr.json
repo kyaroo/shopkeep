@@ -43,6 +43,7 @@
   "lowStock": "Stock bas",
   "all": "Tout",
   "inventoryOk": "Inventaire OK",
+  "inventorySummary": "{count} produits · {low} en stock bas",
   "moreActions": "Plus d'actions",
   "qtyDecrease": "Diminuer la quantité",
   "qtyIncrease": "Augmenter la quantité",

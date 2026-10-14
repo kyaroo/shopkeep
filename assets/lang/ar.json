@@ -43,6 +43,7 @@
   "lowStock": "مخزون منخفض",
   "all": "الكل",
   "inventoryOk": "المخزون سليم",
+  "inventorySummary": "{count} منتجات · {low} مخزون منخفض",
   "moreActions": "المزيد من الإجراءات",
   "qtyDecrease": "تقليل الكمية",
   "qtyIncrease": "زيادة الكمية",

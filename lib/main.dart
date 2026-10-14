@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
+import 'theme.dart';
 
 const supportedLocales = [
   Locale('en'),
@@ -47,11 +48,8 @@ class LocalizedApp extends StatelessWidget {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
+      theme: AppPalette.theme(
         fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : null,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const HomePage(),
       debugShowCheckedModeBanner: false,

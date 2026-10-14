@@ -60,7 +60,21 @@ class CheckoutBody extends StatelessWidget {
         Expanded(
           child: cart.isEmpty
               ? Center(
-                  child: Text('cartEmpty'.tr(), textAlign: TextAlign.center),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.qr_code_scanner,
+                          size: 64,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.5)),
+                      const SizedBox(height: 16),
+                      Text('cartEmpty'.tr(),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleMedium),
+                    ],
+                  ),
                 )
               : ListView.separated(
                   itemCount: cart.lines.length,

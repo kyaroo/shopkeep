@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../utils/money.dart';
+import '../theme.dart';
 import 'scan_page.dart';
 /// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
 Future<void> showProductForm(BuildContext context, {Product? existing}) async {
@@ -55,7 +56,8 @@ class _InventoryBodyState extends State<InventoryBody> {
           TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text('delete'.tr(),
-                  style: const TextStyle(color: Colors.red))),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.error))),
         ],
       ),
     );
@@ -108,22 +110,54 @@ class _InventoryBodyState extends State<InventoryBody> {
           ),
         ),
         const SizedBox(height: 8),
+        if (allProducts.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                'inventorySummary'.tr(namedArgs: {
+                  'count': '${allProducts.length}',
+                  'low': '${allProducts.where((p) => p.isLowStock).length}',
+                }),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ),
         Expanded(
           child: cart.productsLoading
               ? const Center(child: CircularProgressIndicator())
               : products.isEmpty
                   ? Center(
-                      child: Text(
-                        _lowStockOnly
-                            ? 'inventoryOk'.tr()
-                            : 'noProducts'.tr(),
-                        textAlign: TextAlign.center,
-                        style: _lowStockOnly
-                            ? const TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16)
-                            : null,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                              _lowStockOnly
+                                  ? Icons.check_circle_outline
+                                  : Icons.inventory_2_outlined,
+                              size: 64,
+                              color: Theme.of(context)
+                                  .extension<AppColors>()!
+                                  .success
+                                  .withValues(alpha: 0.5)),
+                          const SizedBox(height: 16),
+                          Text(
+                            _lowStockOnly
+                                ? 'inventoryOk'.tr()
+                                : 'noProducts'.tr(),
+                            textAlign: TextAlign.center,
+                            style: _lowStockOnly
+                                ? TextStyle(
+                                    color: Theme.of(context)
+                                        .extension<AppColors>()!
+                                        .success,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16)
+                                : Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
                       ),
                     )
                   : ListView.separated(
@@ -131,20 +165,18 @@ class _InventoryBodyState extends State<InventoryBody> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final p = products[i];
+                        final status = Theme.of(context).extension<AppColors>()!;
+                        final (badgeColor, badgeIcon) = p.isOutOfStock
+                            ? (status.danger, Icons.remove_shopping_cart)
+                            : p.isLowStock
+                                ? (status.warning, Icons.warning_amber)
+                                : (status.success, Icons.check_circle);
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: p.isOutOfStock
-                                ? Colors.red
-                                : p.isLowStock
-                                    ? Colors.orange
-                                    : Colors.green,
+                            backgroundColor: badgeColor,
                             child: Icon(
-                              p.isOutOfStock
-                                  ? Icons.remove_shopping_cart
-                                  : p.isLowStock
-                                      ? Icons.warning_amber
-                                      : Icons.check_circle,
-                              color: Colors.white,
+                              badgeIcon,
+                              color: status.onWarning,
                               size: 20,
                             ),
                           ),
@@ -173,8 +205,10 @@ class _InventoryBodyState extends State<InventoryBody> {
                                   PopupMenuItem<String>(
                                     value: 'delete',
                                     child: Text('delete'.tr(),
-                                        style: const TextStyle(
-                                            color: Colors.red)),
+                                        style: TextStyle(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .error)),
                                   ),
                                 ],
                               ),
@@ -293,7 +327,11 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text('autoFilledHint'.tr(),
-                      style: const TextStyle(fontSize: 12, color: Colors.green)),
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .extension<AppColors>()!
+                              .success)),
                 ),
               TextFormField(
                 controller: _price,
