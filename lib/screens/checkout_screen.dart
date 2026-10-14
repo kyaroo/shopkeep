@@ -217,11 +217,16 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
                 controller: _price,
                 decoration: InputDecoration(
                     labelText: '${'yourPrice'.tr()} *',
-                    hintText: 'priceHint'.tr()),
-                keyboardType: TextInputType.number,
+                    hintText: 'priceHintDirhams'.tr()),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) {
-                  final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
+                  try {
+                    parseDirhamsToCents(v ?? '');
+                    return null;
+                  } on FormatException {
+                    return 'nameRequired'.tr();
+                  }
                 },
               ),
               TextFormField(
@@ -251,7 +256,7 @@ class _NewFromScanDialogState extends State<_NewFromScanDialog> {
                   final p = Product(
                     name: r.displayName,
                     barcode: r.barcode.isEmpty ? null : r.barcode,
-                    priceCents: int.parse(_price.text.trim()),
+                    priceCents: parseDirhamsToCents(_price.text.trim()),
                     stockQty: int.parse(_stock.text.trim()),
                   );
                   if (!mounted) return;

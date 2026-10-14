@@ -25,10 +25,10 @@ void main() {
     await tester.pumpWidget(const ShopKeeperApp());
     await settle(tester);
 
-    // --- Phase 1: boots in English by default ---
-    expect(find.text('Checkout'), findsWidgets);
-    expect(find.text('Inventory'), findsWidgets);
-    expect(find.textContaining('Cart is empty'), findsOneWidget);
+    // --- Phase 1: boots in French by default (target market) ---
+    expect(find.text('Caisse'), findsWidgets);
+    expect(find.text('Inventaire'), findsWidgets);
+    expect(find.textContaining('Le panier est vide'), findsOneWidget);
 
     // --- Phase 2: switch to Arabic, confirm RTL + translation ---
     // Open the language picker via the language icon (tooltip is localized).

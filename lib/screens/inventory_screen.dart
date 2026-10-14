@@ -214,7 +214,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     final p = widget.existing;
     if (p != null) {
       _name.text = p.name;
-      _price.text = p.priceCents.toString();
+      _price.text = formatDirhamsInput(p.priceCents);
       _stock.text = p.stockQty.toString();
       _threshold.text = p.lowStockThreshold.toString();
       _barcode.text = p.barcode ?? '';
@@ -255,7 +255,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       id: widget.existing?.id,
       name: _name.text.trim(),
       barcode: _barcode.text.trim().isEmpty ? null : _barcode.text.trim(),
-      priceCents: int.parse(_price.text.trim()),
+      priceCents: parseDirhamsToCents(_price.text.trim()),
       stockQty: int.parse(_stock.text.trim()),
       lowStockThreshold: int.parse(_threshold.text.trim()),
     );
@@ -299,11 +299,16 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                 controller: _price,
                 decoration: InputDecoration(
                     labelText: '${'yourPrice'.tr()} *',
-                    hintText: 'priceHint'.tr()),
-                keyboardType: TextInputType.number,
+                    hintText: 'priceHintDirhams'.tr()),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) {
-                  final n = int.tryParse(v?.trim() ?? '');
-                  return n == null || n < 0 ? 'nameRequired'.tr() : null;
+                  try {
+                    parseDirhamsToCents(v ?? '');
+                    return null;
+                  } on FormatException {
+                    return 'nameRequired'.tr();
+                  }
                 },
               ),
               TextFormField(

@@ -26,9 +26,9 @@ class ShopKeeperApp extends StatelessWidget {
       supportedLocales: supportedLocales,
       path: 'assets/lang',
       fallbackLocale: const Locale('en'),
-      startLocale: const Locale('en'),
+      startLocale: const Locale('fr'),
       useOnlyLangCode: true,
-      saveLocale: false,
+      saveLocale: true,
       child: ChangeNotifierProvider(
         create: (_) => CartProvider(),
         child: const LocalizedApp(),
