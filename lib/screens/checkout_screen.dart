@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../providers/cart_provider.dart';
@@ -7,13 +6,14 @@ import '../models/product.dart';
 import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../utils/money.dart';
+import 'scan_page.dart';
 
 /// Top-level entry used by the HomePage FAB. Scans a barcode, adds to cart
 /// if known, or offers to capture the item from a barcode database.
 Future<void> scanToAdd(BuildContext context) async {
   final code = await Navigator.push<String>(
     context,
-    MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
+    MaterialPageRoute(builder: (_) => const ScanPage()),
   );
   if (code == null || !context.mounted) return;
   final cart = Provider.of<CartProvider>(context, listen: false);
@@ -70,35 +70,74 @@ class CheckoutBody extends StatelessWidget {
                     final p = line.product;
                     return ListTile(
                       title: Text(p.name),
-                      subtitle:
-                          Text('${formatMoney(p.priceCents)} ${'each'.tr()}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline),
-                            tooltip: 'qtyDecrease'.tr(),
-                            onPressed: () =>
-                                cart.setQty(p, line.qty - 1),
-                          ),
-                          SizedBox(
-                            width: 28,
-                            child: Text('${line.qty}',
-                                textAlign: TextAlign.center),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline),
-                            tooltip: 'qtyIncrease'.tr(),
-                            onPressed: () =>
-                                cart.setQty(p, line.qty + 1),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.red),
-                            tooltip: 'removeFromCart'.tr(),
-                            onPressed: () => cart.removeAt(i),
-                          ),
-                        ],
+                      subtitle: Text(
+                          '${formatMoney(p.priceCents)} ${'each'.tr()}'),
+                      trailing: SizedBox(
+                        width: 190,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // Line subtotal — the glanceable money number,
+                            // tabular so it doesn't jitter as qty changes.
+                            Expanded(
+                              child: Text(
+                                formatMoney(line.lineTotalCents),
+                                textAlign: TextAlign.end,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                    ),
+                              ),
+                            ),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.remove_circle_outline),
+                              tooltip: 'qtyDecrease'.tr(),
+                              onPressed: () =>
+                                  cart.setQty(p, line.qty - 1),
+                            ),
+                            SizedBox(
+                              width: 28,
+                              child: Text('${line.qty}',
+                                  textAlign: TextAlign.center),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              tooltip: 'qtyIncrease'.tr(),
+                              onPressed: () =>
+                                  cart.setQty(p, line.qty + 1),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .error),
+                              tooltip: 'removeFromCart'.tr(),
+                              onPressed: () {
+                                final removedLine = line;
+                                final removedIndex = i;
+                                cart.removeAt(i);
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: Text('removedFromCart'
+                                      .tr(namedArgs: {
+                                        'name': removedLine.product.name
+                                      })),
+                                  action: SnackBarAction(
+                                    label: 'undo'.tr(),
+                                    onPressed: () => cart.insertAt(
+                                        removedIndex, removedLine),
+                                  ),
+                                ));
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -117,10 +156,12 @@ class CheckoutBody extends StatelessWidget {
                   Text(
                     'total'.tr(
                         namedArgs: {'amount': formatMoney(cart.totalCents)}),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontFeatures: const [
+                            FontFeature.tabularFigures()
+                          ],
+                        ),
                   ),
                 ],
               ),
@@ -144,9 +185,10 @@ class CheckoutBody extends StatelessWidget {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                    content: Text('saleFailed'.tr(
-                                        namedArgs: {'error': e.toString()})),
-                                    backgroundColor: Colors.red),
+                                    content: Text('saleFailedGeneric'.tr()),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .error),
                               );
                             }
                           }
@@ -159,23 +201,6 @@ class CheckoutBody extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class BarcodeScanPage extends StatelessWidget {
-  const BarcodeScanPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('scanBarcode'.tr())),
-      body: MobileScanner(
-        onDetect: (capture) {
-          final code = capture.barcodes.firstOrNull?.rawValue;
-          if (code != null) Navigator.pop(context, code);
-        },
-      ),
     );
   }
 }

@@ -9,6 +9,7 @@
   "completeSale": "Valider la vente",
   "saleComplete": "Vente validée — {amount}",
   "saleFailed": "Échec de la vente : {error}",
+  "saleFailedGeneric": "Échec de la vente. Veuillez réessayer.",
   "searchHint": "Rechercher par nom ou code-barres",
   "noProducts": "Aucun produit.\nAppuyez sur + pour en ajouter.",
   "nameRequired": "Requis",
@@ -32,6 +33,9 @@
   "qtyLabel": "Qté",
   "addAndCart": "Ajouter au panier",
   "scanBarcode": "Scanner le code-barres",
+  "scanHint": "Centrez le code-barres dans le cadre",
+  "torchOn": "Activer la torche",
+  "torchOff": "Désactiver la torche",
   "language": "Langue",
   "each": "l'unité",
   "lowStockThreshold": "Alerte stock à",
@@ -42,5 +46,7 @@
   "moreActions": "Plus d'actions",
   "qtyDecrease": "Diminuer la quantité",
   "qtyIncrease": "Augmenter la quantité",
-  "removeFromCart": "Retirer du panier"
+  "removeFromCart": "Retirer du panier",
+  "removedFromCart": "« {name} » retiré",
+  "undo": "Annuler"
 }

@@ -9,6 +9,7 @@
   "completeSale": "إتمام البيع",
   "saleComplete": "تم البيع — {amount}",
   "saleFailed": "فشل البيع: {error}",
+  "saleFailedGeneric": "فشل البيع. حاول مرة أخرى.",
   "searchHint": "ابحث بالاسم أو الباركود",
   "noProducts": "لا توجد منتجات بعد.\nاضغط + لإضافة منتج.",
   "nameRequired": "مطلوب",
@@ -32,6 +33,9 @@
   "qtyLabel": "الكمية",
   "addAndCart": "أضف وضعه في السلة",
   "scanBarcode": "مسح الباركود",
+  "scanHint": "ضع الباركود في منتصف الإطار",
+  "torchOn": "تشغيل الفلاش",
+  "torchOff": "إيقاف الفلاش",
   "language": "اللغة",
   "each": "للوحدة",
   "lowStockThreshold": "تنبيه عند مخزون",
@@ -42,5 +46,7 @@
   "moreActions": "المزيد من الإجراءات",
   "qtyDecrease": "تقليل الكمية",
   "qtyIncrease": "زيادة الكمية",
-  "removeFromCart": "إزالة من السلة"
+  "removeFromCart": "إزالة من السلة",
+  "removedFromCart": "تمت إزالة \"{name}\"",
+  "undo": "تراجع"
 }

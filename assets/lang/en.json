@@ -9,6 +9,7 @@
   "completeSale": "Complete sale",
   "saleComplete": "Sale complete — {amount}",
   "saleFailed": "Sale failed: {error}",
+  "saleFailedGeneric": "Sale failed. Please try again.",
   "searchHint": "Search by name or barcode",
   "noProducts": "No products yet.\nTap + to add one.",
   "nameRequired": "Required",
@@ -32,6 +33,9 @@
   "qtyLabel": "Qty",
   "addAndCart": "Add & put in cart",
   "scanBarcode": "Scan barcode",
+  "scanHint": "Center the barcode in the frame",
+  "torchOn": "Turn on torch",
+  "torchOff": "Turn off torch",
   "language": "Language",
   "each": "each",
   "lowStockThreshold": "Low-stock alert at",
@@ -42,5 +46,7 @@
   "moreActions": "More actions",
   "qtyDecrease": "Decrease quantity",
   "qtyIncrease": "Increase quantity",
-  "removeFromCart": "Remove from cart"
+  "removeFromCart": "Remove from cart",
+  "removedFromCart": "Removed \"{name}\"",
+  "undo": "Undo"
 }

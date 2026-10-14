@@ -56,6 +56,14 @@ class Cart {
     if (index >= 0 && index < _lines.length) _lines.removeAt(index);
   }
 
+  /// Re-inserts a removed line at [index] (clamped), restoring it after an
+  /// undo. Bypasses the stock-guard merge in [add] so the exact original
+  /// line (product + qty) is restored positionally.
+  void insertAt(int index, CartLine line) {
+    final clamped = index.clamp(0, _lines.length);
+    _lines.insert(clamped, line);
+  }
+
   void clear() => _lines.clear();
 
   /// Returns a map of productId -> quantity deducted, and the new stock per product.

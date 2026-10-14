@@ -66,6 +66,12 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Restores a removed line at [index] (used by cart-line delete undo).
+  void insertAt(int index, CartLine line) {
+    _cart.insertAt(index, line);
+    notifyListeners();
+  }
+
   void clear() {
     _cart.clear();
     notifyListeners();

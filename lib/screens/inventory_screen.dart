@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../utils/money.dart';
+import 'scan_page.dart';
 /// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
 Future<void> showProductForm(BuildContext context, {Product? existing}) async {
   final saved = await showDialog<Product>(
@@ -224,7 +224,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   Future<void> _scan() async {
     final code = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (_) => const BarcodeScanPage()),
+      MaterialPageRoute(builder: (_) => const ScanPage()),
     );
     if (code == null || !mounted) return;
     setState(() => _barcode.text = code);
@@ -361,19 +361,3 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   }
 }
 
-class BarcodeScanPage extends StatelessWidget {
-  const BarcodeScanPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('scanBarcode'.tr())),
-      body: MobileScanner(
-        onDetect: (capture) {
-          final code = capture.barcodes.firstOrNull?.rawValue;
-          if (code != null) Navigator.pop(context, code);
-        },
-      ),
-    );
-  }
-}

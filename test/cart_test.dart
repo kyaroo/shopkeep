@@ -63,4 +63,29 @@ void main() {
       expect(map, {1: 2, 2: 1});
     });
   });
+
+  group('Cart insertAt (undo restore)', () {
+    test('restores a removed line at its original index', () {
+      final cart = Cart();
+      cart.add(p('A', 100, 5, id: 1), qty: 2);
+      cart.add(p('B', 200, 5, id: 2), qty: 1);
+      cart.add(p('C', 300, 5, id: 3), qty: 4);
+      final removed = cart.lines[1]; // B
+      cart.removeAt(1);
+      expect(cart.lines.length, 2);
+      cart.insertAt(1, removed);
+      expect(cart.lines.length, 3);
+      expect(cart.lines[1].product.name, 'B');
+      expect(cart.lines[1].qty, 1);
+      expect(cart.totalCents, 200 + 200 + 1200);
+    });
+
+    test('clamps index out of range', () {
+      final cart = Cart();
+      cart.add(p('A', 100, 5, id: 1), qty: 1);
+      cart.insertAt(99, CartLine(p('B', 200, 5, id: 2), 1));
+      expect(cart.lines.length, 2);
+      expect(cart.lines.last.product.name, 'B');
+    });
+  });
 }
