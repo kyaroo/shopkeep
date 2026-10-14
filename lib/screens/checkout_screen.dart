@@ -82,21 +82,62 @@ class CheckoutBody extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final line = cart.lines[i];
                     final p = line.product;
-                    return ListTile(
-                      title: Text(p.name),
-                      subtitle: Text(
-                          '${formatMoney(p.priceCents)} ${'each'.tr()}'),
-                      trailing: SizedBox(
-                        width: 190,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            // Line subtotal — the glanceable money number,
-                            // tabular so it doesn't jitter as qty changes.
-                            Expanded(
-                              child: Text(
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Line 1: product name (wraps freely) + delete.
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(p.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .error),
+                                tooltip: 'removeFromCart'.tr(),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  final removedLine = line;
+                                  final removedIndex = i;
+                                  cart.removeAt(i);
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(
+                                    content: Text('removedFromCart'.tr(
+                                        namedArgs: {
+                                            'name': removedLine.product.name
+                                          })),
+                                    action: SnackBarAction(
+                                      label: 'undo'.tr(),
+                                      onPressed: () => cart.insertAt(
+                                          removedIndex, removedLine),
+                                    ),
+                                  ));
+                                },
+                              ),
+                            ],
+                          ),
+                          // Line 2: unit price • line total (bold, tabular).
+                          // Own row so a large total never wraps.
+                          Row(
+                            children: [
+                              Text(
+                                  '${formatMoney(p.priceCents)} '
+                                  '${'each'.tr()}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall),
+                              const Spacer(),
+                              Text(
                                 formatMoney(line.lineTotalCents),
-                                textAlign: TextAlign.end,
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
@@ -107,51 +148,36 @@ class CheckoutBody extends StatelessWidget {
                                       ],
                                     ),
                               ),
-                            ),
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.remove_circle_outline),
-                              tooltip: 'qtyDecrease'.tr(),
-                              onPressed: () =>
-                                  cart.setQty(p, line.qty - 1),
-                            ),
-                            SizedBox(
-                              width: 28,
-                              child: Text('${line.qty}',
-                                  textAlign: TextAlign.center),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
-                              tooltip: 'qtyIncrease'.tr(),
-                              onPressed: () =>
-                                  cart.setQty(p, line.qty + 1),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .error),
-                              tooltip: 'removeFromCart'.tr(),
-                              onPressed: () {
-                                final removedLine = line;
-                                final removedIndex = i;
-                                cart.removeAt(i);
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text('removedFromCart'
-                                      .tr(namedArgs: {
-                                        'name': removedLine.product.name
-                                      })),
-                                  action: SnackBarAction(
-                                    label: 'undo'.tr(),
-                                    onPressed: () => cart.insertAt(
-                                        removedIndex, removedLine),
-                                  ),
-                                ));
-                              },
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                          // Line 3: quantity stepper.
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                    Icons.remove_circle_outline),
+                                tooltip: 'qtyDecrease'.tr(),
+                                onPressed: () =>
+                                    cart.setQty(p, line.qty - 1),
+                              ),
+                              SizedBox(
+                                width: 32,
+                                child: Text('${line.qty}',
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                    Icons.add_circle_outline),
+                                tooltip: 'qtyIncrease'.tr(),
+                                onPressed: () =>
+                                    cart.setQty(p, line.qty + 1),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   },
