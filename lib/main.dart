@@ -50,7 +50,7 @@ class LocalizedApp extends StatelessWidget {
       supportedLocales: context.supportedLocales,
       locale: context.locale,
       theme: AppPalette.theme(
-        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : null,
+        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
       ),
       home: const HomePage(),
       debugShowCheckedModeBanner: false,
