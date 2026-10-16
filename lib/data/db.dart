@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/product.dart';
+import '../models/sale.dart';
 
 class Db {
   static final Db _instance = Db._internal();
@@ -20,7 +21,7 @@ class Db {
     final path = join(dbPath, 'shopkeeper.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -34,11 +35,59 @@ class Db {
         ''');
         await db.execute(
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_product_barcode ON products(barcode)');
+        await db.execute('''
+          CREATE TABLE sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at INTEGER NOT NULL,
+            total_cents INTEGER NOT NULL,
+            item_count INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE sale_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sale_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            unit_price_cents INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            line_total_cents INTEGER NOT NULL,
+            FOREIGN KEY (sale_id) REFERENCES sales(id)
+          )
+        ''');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute(
               'ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER NOT NULL DEFAULT 5');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              created_at INTEGER NOT NULL,
+              total_cents INTEGER NOT NULL,
+              item_count INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_name TEXT NOT NULL,
+              unit_price_cents INTEGER NOT NULL,
+              quantity INTEGER NOT NULL,
+              line_total_cents INTEGER NOT NULL,
+              FOREIGN KEY (sale_id) REFERENCES sales(id)
+            )
+          ''');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id)');
+          await db.execute(
+              'CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at)');
         }
       },
     );
@@ -95,6 +144,75 @@ class Db {
         );
       }
     });
+  }
+
+  // ---- Sales ----
+
+  /// Records a completed sale with its line items in a single transaction.
+  /// [items] is a list of maps: productName, unitPriceCents, quantity, lineTotalCents.
+  Future<int> insertSale(int totalCents, List<Map<String, Object?>> items) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final saleId = await txn.insert('sales', {
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+        'total_cents': totalCents,
+        'item_count': items.length,
+      });
+      for (final item in items) {
+        await txn.insert('sale_items', {
+          'sale_id': saleId,
+          'product_name': item['productName'],
+          'unit_price_cents': item['unitPriceCents'],
+          'quantity': item['quantity'],
+          'line_total_cents': item['lineTotalCents'],
+        });
+      }
+      return saleId;
+    });
+  }
+
+  /// Returns sales within [startMs, endMs] (inclusive), newest first.
+  Future<List<Sale>> getSales({required int startMs, required int endMs}) async {
+    final db = await database;
+    final rows = await db.query(
+      'sales',
+      where: 'created_at >= ? AND created_at <= ?',
+      whereArgs: [startMs, endMs],
+      orderBy: 'created_at DESC',
+    );
+    final sales = <Sale>[];
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final itemRows = await db.query(
+        'sale_items',
+        where: 'sale_id = ?',
+        whereArgs: [id],
+      );
+      sales.add(Sale.fromMap(
+        row,
+        items: itemRows.map(SaleItem.fromMap).toList(),
+      ));
+    }
+    return sales;
+  }
+
+  /// Returns aggregate stats for sales within [startMs, endMs].
+  /// Keys: totalRevenueCents, totalItems, saleCount.
+  Future<Map<String, int>> getSalesStats({required int startMs, required int endMs}) async {
+    final db = await database;
+    final row = await db.rawQuery(
+      'SELECT COALESCE(SUM(total_cents),0) AS revenue, '
+      'COALESCE(SUM(item_count),0) AS items, '
+      'COUNT(*) AS count '
+      'FROM sales WHERE created_at >= ? AND created_at <= ?',
+      [startMs, endMs],
+    );
+    final r = row.first;
+    return {
+      'totalRevenueCents': (r['revenue'] as int?) ?? 0,
+      'totalItems': (r['items'] as int?) ?? 0,
+      'saleCount': (r['count'] as int?) ?? 0,
+    };
   }
 
   Future<void> close() async {

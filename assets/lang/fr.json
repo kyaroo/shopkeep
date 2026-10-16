@@ -49,5 +49,12 @@
   "qtyIncrease": "Augmenter la quantité",
   "removeFromCart": "Retirer du panier",
   "removedFromCart": "« {name} » retiré",
-  "undo": "Annuler"
+  "undo": "Annuler",
+  "salesHistory": "Historique des ventes",
+  "totalRevenue": "Revenu",
+  "salesCount": "Ventes",
+  "itemsSold": "Articles",
+  "noSalesInPeriod": "Aucune vente sur cette période",
+  "saleDetail": "Détail de la vente",
+  "itemsCount": "{count} articles"
 }

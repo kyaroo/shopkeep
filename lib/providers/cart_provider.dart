@@ -77,12 +77,22 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Completes the sale: deducts stock, clears cart, reloads products.
+  /// Completes the sale: records the sale, deducts stock, clears cart, reloads products.
   /// Returns the total in cents. Throws on failure (caller shows error).
   Future<int> completeSale() async {
     if (_cart.isEmpty) return 0;
     final total = _cart.totalCents;
     final deductions = _cart.stockDeductions();
+
+    // Capture line items before clearing the cart.
+    final items = _cart.lines.map((line) => {
+      'productName': line.product.name,
+      'unitPriceCents': line.product.priceCents,
+      'quantity': line.qty,
+      'lineTotalCents': line.lineTotalCents,
+    }).toList();
+
+    await Db().insertSale(total, items);
     await Db().deductStock(deductions);
     _cart.clear();
     await loadProducts();

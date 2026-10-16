@@ -49,5 +49,12 @@
   "qtyIncrease": "زيادة الكمية",
   "removeFromCart": "إزالة من السلة",
   "removedFromCart": "تمت إزالة \"{name}\"",
-  "undo": "تراجع"
+  "undo": "تراجع",
+  "salesHistory": "سجل المبيعات",
+  "totalRevenue": "الإيرادات",
+  "salesCount": "المبيعات",
+  "itemsSold": "العناصر",
+  "noSalesInPeriod": "لا مبيعات في هذه الفترة",
+  "saleDetail": "تفاصيل البيع",
+  "itemsCount": "{count} عناصر"
 }

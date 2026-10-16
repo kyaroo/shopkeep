@@ -49,5 +49,12 @@
   "qtyIncrease": "Increase quantity",
   "removeFromCart": "Remove from cart",
   "removedFromCart": "Removed \"{name}\"",
-  "undo": "Undo"
+  "undo": "Undo",
+  "salesHistory": "Sales History",
+  "totalRevenue": "Revenue",
+  "salesCount": "Sales",
+  "itemsSold": "Items",
+  "noSalesInPeriod": "No sales in this period",
+  "saleDetail": "Sale Detail",
+  "itemsCount": "{count} items"
 }

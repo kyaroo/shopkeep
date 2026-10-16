@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
+import 'screens/sales_history_screen.dart';
 import 'theme.dart';
 
 const supportedLocales = [
@@ -114,18 +115,24 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: _tab == 0 ? const CheckoutBody() : const InventoryBody(),
+      body: _tab == 0
+          ? const CheckoutBody()
+          : _tab == 1
+              ? const InventoryBody()
+              : const SalesHistoryScreen(),
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               onPressed: () => scanToAdd(context),
               tooltip: 'scanToAdd'.tr(),
               child: const Icon(Icons.qr_code_scanner),
             )
-          : FloatingActionButton(
-              onPressed: () => showProductForm(context),
-              tooltip: 'addProduct'.tr(),
-              child: const Icon(Icons.add),
-            ),
+          : _tab == 1
+              ? FloatingActionButton(
+                  onPressed: () => showProductForm(context),
+                  tooltip: 'addProduct'.tr(),
+                  child: const Icon(Icons.add),
+                )
+              : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
@@ -134,6 +141,8 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.point_of_sale), label: 'checkout'.tr()),
           NavigationDestination(
               icon: const Icon(Icons.inventory_2), label: 'inventory'.tr()),
+          NavigationDestination(
+              icon: const Icon(Icons.receipt_long), label: 'salesHistory'.tr()),
         ],
       ),
     );
