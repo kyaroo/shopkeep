@@ -86,6 +86,9 @@ class _InventoryBodyState extends State<InventoryBody> {
             controller: _search,
             decoration: InputDecoration(
               hintText: 'searchHint'.tr(),
+              hintStyle: Theme.of(context)
+                  .extension<AppTextStyles>()!
+                  .label(context),
               prefixIcon: const Icon(Icons.search),
               border: const OutlineInputBorder(),
             ),
@@ -96,13 +99,19 @@ class _InventoryBodyState extends State<InventoryBody> {
           child: Row(
             children: [
               FilterChip(
-                label: Text('all'.tr()),
+                label: Text('all'.tr(),
+                    style: Theme.of(context)
+                        .extension<AppTextStyles>()!
+                        .label(context)),
                 selected: !_lowStockOnly,
                 onSelected: (_) => setState(() => _lowStockOnly = false),
               ),
               const SizedBox(width: 8),
               FilterChip(
-                label: Text('lowStock'.tr()),
+                label: Text('lowStock'.tr(),
+                    style: Theme.of(context)
+                        .extension<AppTextStyles>()!
+                        .label(context)),
                 selected: _lowStockOnly,
                 onSelected: (_) => setState(() => _lowStockOnly = true),
               ),
@@ -120,8 +129,9 @@ class _InventoryBodyState extends State<InventoryBody> {
                   'count': '${allProducts.length}',
                   'low': '${allProducts.where((p) => p.isLowStock).length}',
                 }),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: Theme.of(context)
+                    .extension<AppTextStyles>()!
+                    .meta(context),
               ),
             ),
           ),
@@ -149,13 +159,13 @@ class _InventoryBodyState extends State<InventoryBody> {
                                 : 'noProducts'.tr(),
                             textAlign: TextAlign.center,
                             style: _lowStockOnly
-                                ? TextStyle(
-                                    color: Theme.of(context)
-                                        .extension<AppColors>()!
-                                        .success,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)
-                                : Theme.of(context).textTheme.titleMedium,
+                                ? Theme.of(context)
+                                    .extension<AppTextStyles>()!
+                                    .name(context)
+                                    .copyWith(color: Theme.of(context).extension<AppColors>()!.success)
+                                : Theme.of(context)
+                                    .extension<AppTextStyles>()!
+                                    .name(context),
                           ),
                         ],
                       ),
@@ -180,10 +190,16 @@ class _InventoryBodyState extends State<InventoryBody> {
                               size: 20,
                             ),
                           ),
-                          title: Text(p.name),
+                          title: Text(p.name,
+                              style: Theme.of(context)
+                                  .extension<AppTextStyles>()!
+                                  .name(context)),
                           subtitle: Text(
                               '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'
-                              '${p.barcode != null ? '  •  ${p.barcode}' : ''}'),
+                              '${p.barcode != null ? '  •  ${p.barcode}' : ''}',
+                              style: Theme.of(context)
+                                  .extension<AppTextStyles>()!
+                                  .meta(context)),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

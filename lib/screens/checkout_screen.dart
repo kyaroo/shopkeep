@@ -6,6 +6,7 @@ import '../models/product.dart';
 import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../utils/money.dart';
+import '../theme.dart';
 import 'scan_page.dart';
 
 /// Top-level entry used by the HomePage FAB. Scans a barcode, adds to cart
@@ -72,7 +73,9 @@ class CheckoutBody extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text('cartEmpty'.tr(),
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleMedium),
+                          style: Theme.of(context)
+                              .extension<AppTextStyles>()!
+                              .name(context)),
                     ],
                   ),
                 )
@@ -95,8 +98,8 @@ class CheckoutBody extends StatelessWidget {
                               Expanded(
                                 child: Text(p.name,
                                     style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
+                                        .extension<AppTextStyles>()!
+                                        .name(context)),
                               ),
                               IconButton(
                                 icon: Icon(Icons.delete_outline,
@@ -133,20 +136,14 @@ class CheckoutBody extends StatelessWidget {
                                   '${formatMoney(p.priceCents)} '
                                   '${'each'.tr()}',
                                   style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall),
+                                      .extension<AppTextStyles>()!
+                                      .linePrice(context)),
                               const Spacer(),
                               Text(
                                 formatMoney(line.lineTotalCents),
                                 style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
-                                    ),
+                                    .extension<AppTextStyles>()!
+                                    .lineTotal(context),
                               ),
                             ],
                           ),
@@ -165,8 +162,8 @@ class CheckoutBody extends StatelessWidget {
                                 child: Text('${line.qty}',
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
+                                        .extension<AppTextStyles>()!
+                                        .name(context)),
                               ),
                               IconButton(
                                 icon: const Icon(
@@ -192,16 +189,15 @@ class CheckoutBody extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('items'.tr(namedArgs: {'count': '${cart.itemCount}'}),
-                      style: Theme.of(context).textTheme.titleMedium),
+                      style: Theme.of(context)
+                          .extension<AppTextStyles>()!
+                          .label(context)),
                   Text(
                     'total'.tr(
                         namedArgs: {'amount': formatMoney(cart.totalCents)}),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontFeatures: const [
-                            FontFeature.tabularFigures()
-                          ],
-                        ),
+                    style: Theme.of(context)
+                        .extension<AppTextStyles>()!
+                        .total(context),
                   ),
                 ],
               ),
