@@ -5,6 +5,11 @@ import '../models/sale.dart';
 import '../utils/money.dart';
 import 'sale_detail_screen.dart';
 
+// Per-shop identity: one APK = one shop for MVP.
+// The shopKey is set once at first launch and stored in shared_preferences
+// (not yet implemented — default 'default' covers the single-store MVP).
+String get shopKey => const String.fromEnvironment('SHOP_KEY', defaultValue: 'default');
+
 class SalesHistoryScreen extends StatefulWidget {
   const SalesHistoryScreen({super.key});
 
@@ -30,14 +35,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final sales = await Db().getSales(
-      startMs: _startDate.millisecondsSinceEpoch,
-      endMs: _endDate.millisecondsSinceEpoch,
-    );
-    final stats = await Db().getSalesStats(
-      startMs: _startDate.millisecondsSinceEpoch,
-      endMs: _endDate.millisecondsSinceEpoch,
-    );
+    final db = await Db.open(shopKey);
+    final sales = await db.getSales(shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
+    final stats = await db.getSalesStats(shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
     if (!mounted) return;
     setState(() {
       _sales = sales;

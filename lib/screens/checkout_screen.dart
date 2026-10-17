@@ -46,7 +46,8 @@ Future<void> scanToAdd(BuildContext context) async {
 Future<dynamic> _lookup(String code, CartProvider cart) async {
   final inCache = cart.products.where((p) => p.barcode == code).firstOrNull;
   if (inCache != null) return inCache;
-  return Db().getByBarcode(code);
+  final db = await Db.open(cart.shopKey);
+  return db.getByBarcode(cart.shopKey, code);
 }
 
 /// Body of the Checkout tab (the single AppBar/FAB live in HomePage).

@@ -22,7 +22,7 @@ void main() {
   // unload in later tests). Each phase verifies its own behavior.
   testWidgets('Boot, switch to Arabic (RTL), then navigate to Inventory',
       (WidgetTester tester) async {
-    await tester.pumpWidget(const ShopKeeperApp());
+    await tester.pumpWidget(ShopKeeperApp(shopKey: 'default'));
     await settle(tester);
 
     // --- Phase 1: boots in French by default (target market) ---

@@ -6,10 +6,12 @@ import '../data/db.dart';
 import '../data/product_lookup.dart';
 
 class CartProvider with ChangeNotifier {
+  final String shopKey;
   final Cart _cart = Cart();
   List<Product> _products = [];
   bool _productsLoading = false;
   String _lastSearch = '';
+  String _businessName = 'Maison du Marché';
 
   List<CartLine> get lines => _cart.lines;
   int get totalCents => _cart.totalCents;
@@ -17,8 +19,10 @@ class CartProvider with ChangeNotifier {
   bool get isEmpty => _cart.isEmpty;
   List<Product> get products => _products;
   bool get productsLoading => _productsLoading;
+  String get businessName => _businessName;
 
-  CartProvider() {
+  CartProvider(this.shopKey, {String? businessName})
+      : _businessName = businessName ??= 'Maison du Marché' {
     loadProducts();
   }
 
@@ -26,7 +30,8 @@ class CartProvider with ChangeNotifier {
     _lastSearch = search ?? _lastSearch;
     _productsLoading = true;
     notifyListeners();
-    _products = await Db().getProducts(search: search);
+    final db = await Db.open(shopKey);
+    _products = await db.getProducts(shopKey, search: search);
     _productsLoading = false;
     notifyListeners();
   }
@@ -34,15 +39,18 @@ class CartProvider with ChangeNotifier {
   /// Inserts a new product or updates an existing one (matched by id).
   Future<void> saveProduct(Product p) async {
     if (p.id == null) {
-      await Db().insertProduct(p);
+      final db = await Db.open(shopKey);
+      await db.insertProduct(shopKey, p);
     } else {
-      await Db().updateProduct(p);
+      final db = await Db.open(shopKey);
+      await db.updateProduct(shopKey, p);
     }
     await loadProducts(search: _lastSearch);
   }
 
   Future<void> deleteProduct(int id) async {
-    await Db().deleteProduct(id);
+    final db = await Db.open(shopKey);
+    await db.deleteProduct(shopKey, id);
     await loadProducts(search: _lastSearch);
   }
 
@@ -92,8 +100,9 @@ class CartProvider with ChangeNotifier {
       'lineTotalCents': line.lineTotalCents,
     }).toList();
 
-    await Db().insertSale(total, items);
-    await Db().deductStock(deductions);
+    final db = await Db.open(shopKey);
+    await db.insertSale(shopKey, total, items);
+    await db.deductStock(shopKey, deductions);
     _cart.clear();
     await loadProducts();
     return total;
