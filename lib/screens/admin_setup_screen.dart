@@ -73,7 +73,9 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('shopCreated'.tr())),
       );
-      Navigator.of(context).pop();
+      _nameController.clear();
+      _shopKeyController.clear();
+      _loadShops();
     }
   }
 
