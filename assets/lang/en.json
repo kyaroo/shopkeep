@@ -28,6 +28,7 @@
   "addedToInventory": "Added to inventory",
   "autoFilledHint": "Auto-filled from barcode scan — set your price.",
   "notFoundOnline": "Not in inventory and not found online — add it manually from Inventory",
+  "notInInventory": "Not in inventory — add it from Inventory first",
   "newItemFromScan": "New item from scan",
   "yourPrice": "Your price",
   "qtyLabel": "Qty",

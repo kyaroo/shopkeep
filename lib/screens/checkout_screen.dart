@@ -23,23 +23,10 @@ Future<void> scanToAdd(BuildContext context) async {
     cart.addToCart(product);
     return;
   }
-  final result = await cart.lookupProduct(code);
-  if (!context.mounted) return;
-  if (result == null) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('notFoundOnline'.tr())),
-      );
-    }
-    return;
-  }
-  if (!context.mounted) return;
-  final created = await showDialog<Product>(
-    context: context,
-    builder: (_) => _NewFromScanDialog(result: result),
-  );
-  if (created != null && context.mounted) {
-    cart.addToCart(created);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('notInInventory'.tr())),
+    );
   }
 }
 
