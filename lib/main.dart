@@ -289,7 +289,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
-    final businessName = cart.businessName;
 
     return Scaffold(
       appBar: AppBar(
@@ -309,14 +308,6 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // Shopkeeper name above the app.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: Text(
-              businessName,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
           Flexible(
             child: _tab == 0
                 ? const CheckoutBody()

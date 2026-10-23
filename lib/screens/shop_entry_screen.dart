@@ -5,6 +5,8 @@ import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
 import '../build_config.dart';
 import '../app_state.dart';
+import '../data/provisioning.dart';
+import 'qr_scan_page.dart';
 
 /// Shop entry screen: the shopkeeper enters the shop code provided by the admin.
 ///
@@ -21,6 +23,40 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   final _codeController = TextEditingController();
   bool _loading = false;
 
+  Future<void> _scanQr() async {
+    final token = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const QrScanPage()),
+    );
+    if (token == null || token.isEmpty) return;
+    await _handleToken(token);
+  }
+
+  Future<void> _handleToken(String token) async {
+    final payload = Provisioning.verify(token);
+    if (payload == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('invalidShopCode'.tr())),
+        );
+      }
+      return;
+    }
+    final code = (payload['shop_key'] as String?)?.trim().toLowerCase();
+    final name = payload['business_name'] as String?;
+    if (code == null || code.isEmpty || name == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('invalidShopCode'.tr())),
+        );
+      }
+      return;
+    }
+    await Config.setCurrentShopKey(code);
+    await Config.saveBusinessName(name);
+    appShopKeyNotifier.value = code;
+    appBusinessNameNotifier.value = name;
+  }
   Future<void> _joinShop() async {
     final code = _codeController.text.trim().toLowerCase();
     if (code.isEmpty) return;
@@ -172,6 +208,12 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
               autocorrect: false,
             ),
             const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loading ? null : _scanQr,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: Text('scanQr'.tr()),
+            ),
+            const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _loading ? null : _joinShop,
               child: _loading

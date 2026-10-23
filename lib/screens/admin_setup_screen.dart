@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../build_config.dart';
 import '../data/config.dart';
+import '../data/provisioning.dart';
 import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
 import '../data/catalog_sync_client.dart';
@@ -32,7 +34,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     _shopKeyController.addListener(() {});
     _nameController.addListener(() {
       if (_shopKeyController.text.isEmpty) {
-        _shopKeyController.text = _slugify(_nameController.text);
+        _shopKeyController.text = Provisioning.generateShopKey();
       }
     });
   }
@@ -84,17 +86,40 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
       // Server may be unreachable; local shop still created.
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('shopCreated'.tr())),
-      );
+      _showProvisioningQr(key, name);
       _nameController.clear();
       _shopKeyController.clear();
       _loadShops();
     }
   }
 
-  String _slugify(String input) {
-    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
+  void _showProvisioningQr(String shopKey, String businessName) {
+    final payload = {
+      'shop_key': shopKey,
+      'business_name': businessName,
+      'issued_at': DateTime.now().millisecondsSinceEpoch,
+      'nonce': Provisioning.generateShopKey(length: 8),
+    };
+    final token = Provisioning.sign(payload);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('shopCreated'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            QrImageView(data: token, size: 200),
+            const SizedBox(height: 8),
+            SelectableText(shopKey, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(businessName),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('close'.tr())),
+        ],
+      ),
+    );
   }
 
   void _confirmDelete(String key) {
