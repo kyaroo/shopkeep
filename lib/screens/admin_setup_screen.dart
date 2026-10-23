@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
+import '../build_config.dart';
 import '../data/config.dart';
+import '../providers/catalog_provider.dart';
+import 'catalog_home_page.dart';
 
 /// Admin setup screen: create / manage shops.
 ///
@@ -160,6 +164,36 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                     ),
                   ),
                 ),
+                if (kIsAdmin) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Catalog (founder)',
+                              style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ChangeNotifierProvider(
+                                    create: (_) => CatalogProvider()..init(),
+                                    child: const CatalogHomePage(),
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.qr_code_scanner),
+                            label: const Text('Open Catalog'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
     );
