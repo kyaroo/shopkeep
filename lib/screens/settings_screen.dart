@@ -24,8 +24,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(
-        text: Config.getBusinessName().toString());
+    _nameController = TextEditingController();
+    _loadBusinessName();
+  }
+
+  Future<void> _loadBusinessName() async {
+    final name = await Config.getBusinessName();
+    if (mounted) {
+      _nameController.text = name;
+    }
   }
 
   @override
