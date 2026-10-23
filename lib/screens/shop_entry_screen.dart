@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../data/config.dart';
+import '../data/sync_config.dart';
+import '../data/catalog_sync_client.dart';
 import '../build_config.dart';
 
 /// Shop entry screen: the shopkeeper enters the shop code provided by the admin.
@@ -23,17 +25,52 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     if (code.isEmpty) return;
     setState(() => _loading = true);
 
-    final list = await Config.getShopList();
-    if (!list.contains(code)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('invalidShopCode'.tr())),
-      );
+    if (kIsAdmin) {
+      final list = await Config.getShopList();
+      if (!list.contains(code)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('invalidShopCode'.tr())),
+          );
+        }
+        setState(() => _loading = false);
+        return;
+      }
+      await Config.setCurrentShopKey(code);
+      if (mounted) Navigator.of(context).pop();
       setState(() => _loading = false);
       return;
     }
 
-    await Config.setCurrentShopKey(code);
-    if (mounted) Navigator.of(context).pop();
+    // End-user: validate against server registry.
+    try {
+      final cfg = await SyncConfig.load(
+        defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
+        defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
+      );
+      final client = CatalogSyncClient.fromConfig(cfg);
+      final name = await client.getShop(code);
+      client.close();
+      if (name == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('invalidShopCode'.tr())),
+          );
+        }
+        setState(() => _loading = false);
+        return;
+      }
+      await Config.setCurrentShopKey(code);
+      await Config.saveBusinessName(name);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('invalidShopCode'.tr())),
+        );
+      }
+    }
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _addShop() async {

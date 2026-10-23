@@ -201,10 +201,8 @@ class CatalogProvider with ChangeNotifier {
 
   Future<void> loadSyncConfig() async {
     _syncConfig = await SyncConfig.load(
-      defaultUrl: kIsAdmin ? 'https://vpshermes.tail48f535.ts.net:8444' : null,
-      defaultToken: kIsAdmin
-          ? 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c'
-          : null,
+      defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
+      defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
     );
     notifyListeners();
   }

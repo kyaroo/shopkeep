@@ -3,7 +3,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../build_config.dart';
 import '../data/config.dart';
+import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
+import '../data/catalog_sync_client.dart';
 import 'catalog_home_page.dart';
 
 /// Admin setup screen: create / manage shops.
@@ -69,6 +71,18 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     await Config.addShop(key, name);
     await Config.setCurrentShopKey(key);
     await Config.saveBusinessName(name);
+    // Register shop on server (best-effort).
+    try {
+      final cfg = await SyncConfig.load(
+        defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
+        defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
+      );
+      final client = CatalogSyncClient.fromConfig(cfg);
+      await client.registerShop(key, name);
+      client.close();
+    } catch (_) {
+      // Server may be unreachable; local shop still created.
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('shopCreated'.tr())),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/catalog_entry.dart';
+import '../data/sync_config.dart';
 
 /// Result of a push sync against the catalog server.
 class SyncResult {
@@ -35,6 +36,14 @@ class CatalogSyncClient {
     required this.deviceId,
     http.Client? client,
   }) : _client = client ?? http.Client();
+
+  factory CatalogSyncClient.fromConfig(SyncConfig cfg) {
+    return CatalogSyncClient(
+      baseUrl: cfg.url ?? '',
+      token: cfg.token ?? '',
+      deviceId: cfg.deviceId,
+    );
+  }
 
   Map<String, String> get _headers => {
         'Authorization': 'Bearer $token',
@@ -92,6 +101,39 @@ class CatalogSyncClient {
           .map((r) => (r['barcode'] ?? '').toString())
           .toList(),
     );
+  }
+
+  /// Registers a shop on the server (admin provisioning).
+  Future<void> registerShop(String shopKey, String businessName) async {
+    final resp = await _client
+        .post(
+          Uri.parse('$baseUrl/v1/shops'),
+          headers: _headers,
+          body: jsonEncode({'shop_key': shopKey, 'business_name': businessName}),
+        )
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      throw SyncException('register shop ${resp.statusCode}: ${resp.body}');
+    }
+  }
+
+  /// Looks up a shop on the server. Returns business name if found, else null.
+  Future<String?> getShop(String shopKey) async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/shops/$shopKey'), headers: _headers)
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 404) return null;
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('get shop ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return data['business_name'] as String?;
   }
 
   void close() => _client.close();
