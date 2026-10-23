@@ -3,12 +3,14 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/catalog_provider.dart';
+import 'build_config.dart';
 import 'data/config.dart';
 import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/sales_history_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/shop_entry_screen.dart';
 import 'theme.dart';
 
 const supportedLocales = [
@@ -28,7 +30,11 @@ void main() async {
   // 3. Else → first-run onboarding.
   final shopList = await Config.getShopList();
   if (shopList.isEmpty) {
-    runApp(AdminSetupApp());
+    if (kIsAdmin) {
+      runApp(AdminSetupApp());
+    } else {
+      runApp(ShopEntryApp());
+    }
     return;
   }
   // If a shop was left active, open it.
@@ -42,9 +48,46 @@ void main() async {
   runApp(AdminSetupApp());
 }
 
+class ShopEntryApp extends StatelessWidget {
+  const ShopEntryApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return EasyLocalization(
+      supportedLocales: supportedLocales,
+      path: 'assets/lang',
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('fr'),
+      useOnlyLangCode: true,
+      saveLocale: true,
+      child: const _ShopEntryLocalizedApp(),
+    );
+  }
+}
+
+class _ShopEntryLocalizedApp extends StatelessWidget {
+  const _ShopEntryLocalizedApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'myhanout',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      theme: AppPalette.theme(
+        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
+      ),
+      home: const ShopEntryScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+
+}
+
 class MyhanoutApp extends StatelessWidget {
-  final String shopKey;
-  final String businessName;
+    final String shopKey;
+    final String businessName;
   const MyhanoutApp({super.key, required this.shopKey, this.businessName = 'Maison du Marché'});
 
   @override

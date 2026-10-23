@@ -29,6 +29,8 @@
   "autoFilledHint": "Pré-rempli depuis le code-barres — définissez votre prix.",
   "notFoundOnline": "Absent de l'inventaire et introuvable en ligne — ajoutez-le manuellement",
   "notInInventory": "Absent de l'inventaire — ajoutez-le depuis l'inventaire d'abord",
+  "shopKeyRequired": "La clé boutique est requise",
+  "shopKeyDuplicate": "Cette clé boutique existe déjà",
   "newItemFromScan": "Nouvel article scanné",
   "yourPrice": "Votre prix",
   "qtyLabel": "Qté",

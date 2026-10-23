@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../data/config.dart';
 import '../data/import_export.dart';
+import '../screens/shop_entry_screen.dart';
 import '../theme.dart';
 
 /// Settings screen: business name, export/import, close shop.
@@ -189,6 +190,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text('shop'.tr(), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
+                  ListTile(
+                    leading: const Icon(Icons.login),
+                    title: Text('joinShop'.tr()),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ShopEntryScreen()),
+                      );
+                    },
+                  ),
                   ListTile(
                     leading: const Icon(Icons.delete),
                     title: Text('deleteShop'.tr()),

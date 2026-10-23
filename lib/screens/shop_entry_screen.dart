@@ -36,6 +36,65 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _addShop() async {
+    final nameController = TextEditingController();
+    final keyController = TextEditingController();
+    nameController.addListener(() {
+      if (keyController.text.isEmpty) {
+        keyController.text = _slugify(nameController.text);
+      }
+    });
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('addShop'.tr()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'businessName'.tr(),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: keyController,
+              decoration: InputDecoration(
+                labelText: 'shopKey'.tr(),
+                border: const OutlineInputBorder(),
+              ),
+              autocorrect: false,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
+          TextButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final key = keyController.text.trim().toLowerCase();
+              if (name.isEmpty || key.isEmpty) return;
+              await Config.addShop(key, name);
+              await Config.setCurrentShopKey(key);
+              await Config.saveBusinessName(name);
+              if (context.mounted) Navigator.pop(context, true);
+            },
+            child: Text('createShop'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (result == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  String _slugify(String input) {
+    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -83,6 +142,11 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Text('joinShop'.tr()),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _addShop,
+              child: Text('addShop'.tr()),
             ),
           ],
         ),
