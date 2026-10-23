@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:shopkeeper/main.dart';
+import 'package:myhanout/main.dart';
 
 void main() {
   setUpAll(() {
@@ -22,7 +22,7 @@ void main() {
   // unload in later tests). Each phase verifies its own behavior.
   testWidgets('Boot, switch to Arabic (RTL), then navigate to Inventory',
       (WidgetTester tester) async {
-    await tester.pumpWidget(ShopKeeperApp(shopKey: 'default'));
+    await tester.pumpWidget(MyhanoutApp(shopKey: 'default'));
     await settle(tester);
 
     // --- Phase 1: boots in French by default (target market) ---

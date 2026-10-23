@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shopkeeper/data/open_food_facts_source.dart';
-import 'package:shopkeeper/data/upc_item_db_source.dart';
+import 'package:myhanout/data/open_food_facts_source.dart';
+import 'package:myhanout/data/upc_item_db_source.dart';
 
 void main() {
   group('OpenFoodFactsSource.parse', () {

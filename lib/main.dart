@@ -34,17 +34,17 @@ void main() async {
   final active = await Config.getCurrentShopKey();
   if (active.isNotEmpty) {
     final businessName = await Config.getBusinessName();
-    runApp(ShopKeeperApp(shopKey: active, businessName: businessName));
+    runApp(MyhanoutApp(shopKey: active, businessName: businessName));
     return;
   }
   // Otherwise → first-run onboarding.
   runApp(AdminSetupApp());
 }
 
-class ShopKeeperApp extends StatelessWidget {
+class MyhanoutApp extends StatelessWidget {
   final String shopKey;
   final String businessName;
-  const ShopKeeperApp({super.key, required this.shopKey, this.businessName = 'Maison du Marché'});
+  const MyhanoutApp({super.key, required this.shopKey, this.businessName = 'Maison du Marché'});
 
   @override
   Widget build(BuildContext context) {

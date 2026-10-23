@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shopkeeper/models/product.dart';
-import 'package:shopkeeper/models/cart.dart';
+import 'package:myhanout/models/product.dart';
+import 'package:myhanout/models/cart.dart';
 
 Product p(String name, int priceCents, int stock, {int? id}) =>
     Product(id: id, name: name, priceCents: priceCents, stockQty: stock);

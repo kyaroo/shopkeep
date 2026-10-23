@@ -8,7 +8,7 @@ design: one APK, one shop per install, no login, no account server.
 
 - **No `shop_id` column, no `WHERE shop_id = ?`, no cross-shop queries.**
   Isolation is by file system: each shop gets exactly one SQLite file
-  `shopkeeper_<shopKey>.db` under the platform databases directory
+  `myhanout_<shopKey>.db` under the platform databases directory
   (`path_provider`), so the OS/app sandbox already isolates tenants.
 - The only tenant identity is a per-install `shopKey` (6–8 charset slug or
   UUID prefix, stored in `shared_preferences`), set once at first launch

@@ -12,7 +12,7 @@ import '../models/sale.dart';
 ///
 /// Principle: **the file is the tenant**. Isolation is by file system, not by
 /// SQL. Each shopKey gets exactly one SQLite file at
-/// `$databasesPath/shopkeeper_<shopKey>.db`. There is no `shop_id` column and
+/// `$databasesPath/myhanout_<shopKey>.db`. There is no `shop_id` column and
 /// no `WHERE shop_id = ?` — the SQL never mentions a shop, so cross-shop
 /// contamination is impossible by construction.
 ///
@@ -49,6 +49,15 @@ class Db {
     if (_openHandles.containsKey(shopKey)) return _openHandles[shopKey]!;
     final file = await shopDbFile(shopKey);
     file.parent.createSync(recursive: true);
+    // Best-effort in-package migration from the legacy 'shopkeeper_' filename.
+    try {
+      final legacy = File(join(file.parent.path, 'shopkeeper_$shopKey.db'));
+      if (!file.existsSync() && legacy.existsSync()) {
+        legacy.renameSync(file.path);
+      }
+    } catch (_) {
+      // Migration is best-effort; never block open.
+    }
     final db = await openDatabase(
       file.path,
       version: 4,
@@ -63,7 +72,7 @@ class Db {
   static void _expire(String shopKey) => _openHandles.remove(shopKey);
 
   static Future<String> shopDbPath(String shopKey) async =>
-      join(await getDatabasesPath(), 'shopkeeper_$shopKey.db');
+      join(await getDatabasesPath(), 'myhanout_$shopKey.db');
 
   static Future<File> shopDbFile(String shopKey) async =>
       File(await shopDbPath(shopKey));

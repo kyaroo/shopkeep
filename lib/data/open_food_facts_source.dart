@@ -19,7 +19,7 @@ class OpenFoodFactsSource implements BarcodeSource {
     final uri = Uri.parse('$_base/${Uri.encodeComponent(barcode)}.json');
     try {
       final resp = await _client
-          .get(uri, headers: {'User-Agent': 'ShopKeeper/0.1 (shop app)'})
+          .get(uri, headers: {'User-Agent': 'myhanout/0.1 (shop app)'})
           .timeout(const Duration(seconds: 12));
       if (resp.statusCode != 200) return null;
       return parse(resp.body);

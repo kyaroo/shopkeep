@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shopkeeper/models/product.dart';
+import 'package:myhanout/models/product.dart';
 
 Product p({
   int? id,

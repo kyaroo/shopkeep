@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shopkeeper/utils/money.dart';
+import 'package:myhanout/utils/money.dart';
 
 void main() {
   group('parseDirhamsToCents', () {

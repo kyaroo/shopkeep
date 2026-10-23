@@ -1,4 +1,4 @@
-name: shopkeeper
+name: myhanout
 description: "Offline-first inventory & checkout for small shops, on any Android phone."
 publish_to: 'none'
 version: 0.1.0+1

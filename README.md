@@ -1,4 +1,4 @@
-# ShopKeeper — offline inventory & checkout for small shops
+# myhanout — offline inventory & checkout for small shops
 
 A tiny, easy Flutter app so a shop manager can **inventory products** and **run a
 checkout (POS)** from any Android phone. No server, no account, works offline.

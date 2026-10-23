@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.shopkeeper"
+    namespace = "com.myhanout"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.shopkeeper.shopkeeper"
+        applicationId = "com.myhanout.myhanout"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -27,12 +27,12 @@ android {
 
     productFlavors {
         create("admin") {
-            applicationId = "com.shopkeeper.admin"
+            applicationId = "com.myhanout.admin"
             versionNameSuffix = "-admin"
             resValue("string", "app_name", "myhanoutadmin")
         }
         create("shopkeeper") {
-            applicationId = "com.shopkeeper.shopkeeper"
+            applicationId = "com.myhanout.myhanout"
             versionNameSuffix = "-pos"
             resValue("string", "app_name", "myhanout")
         }

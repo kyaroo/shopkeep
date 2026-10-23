@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:shopkeeper/data/db.dart';
-import 'package:shopkeeper/models/product.dart';
+import 'package:myhanout/data/db.dart';
+import 'package:myhanout/models/product.dart';
 
 void main() {
   setUpAll(() {
