@@ -3,14 +3,16 @@ import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../providers/catalog_provider.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import 'scan_page.dart';
+import 'browse_page.dart';
 /// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
-Future<void> showProductForm(BuildContext context, {Product? existing}) async {
+Future<void> showProductForm(BuildContext context, {Product? existing, String? initialBarcode, String? initialName}) async {
   final saved = await showDialog<Product>(
     context: context,
-    builder: (_) => ProductFormDialog(existing: existing),
+    builder: (_) => ProductFormDialog(existing: existing, initialBarcode: initialBarcode, initialName: initialName),
   );
   if (saved != null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +107,28 @@ class _InventoryBodyState extends State<InventoryBody> {
                         .label(context)),
                 selected: !_lowStockOnly,
                 onSelected: (_) => setState(() => _lowStockOnly = false),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () async {
+                  final selected = await Navigator.of(context).push<Map<String, dynamic>>(
+                    MaterialPageRoute(
+                      builder: (_) => BrowsePage(
+                        localOnly: true,
+                        onSelect: (m) {},
+                      ),
+                    ),
+                  );
+                  if (selected != null && context.mounted) {
+                    showProductForm(
+                      context,
+                      initialBarcode: selected['barcode'] as String?,
+                      initialName: selected['name'] as String?,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.travel_explore, size: 18),
+                label: const Text('Browse catalog'),
               ),
               const SizedBox(width: 8),
               FilterChip(
@@ -241,7 +265,9 @@ class _InventoryBodyState extends State<InventoryBody> {
 
 class ProductFormDialog extends StatefulWidget {
   final Product? existing;
-  const ProductFormDialog({super.key, this.existing});
+  final String? initialBarcode;
+  final String? initialName;
+  const ProductFormDialog({super.key, this.existing, this.initialBarcode, this.initialName});
 
   @override
   State<ProductFormDialog> createState() => _ProductFormDialogState();
@@ -268,6 +294,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _stock.text = p.stockQty.toString();
       _threshold.text = p.lowStockThreshold.toString();
       _barcode.text = p.barcode ?? '';
+    } else {
+      if (widget.initialBarcode != null) _barcode.text = widget.initialBarcode!;
+      if (widget.initialName != null) _name.text = widget.initialName!;
     }
   }
 
@@ -286,6 +315,19 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (inInventory) return;
 
     setState(() => _lookingUp = true);
+    // Local catalog first (zero data).
+    try {
+      final catalog = Provider.of<CatalogProvider>(context, listen: false);
+      final entry = await catalog.get(code);
+      if (entry != null && mounted) {
+        setState(() {
+          _name.text = entry.name;
+          _lookedUp = true;
+        });
+        setState(() => _lookingUp = false);
+        return;
+      }
+    } catch (_) {}
     final result = await Provider.of<CartProvider>(context, listen: false)
         .lookupProduct(code);
     if (!mounted) return;

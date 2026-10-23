@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'catalog_seed_loader.dart';
 import '../models/catalog_entry.dart';
 
 /// SQLite implementation of [CatalogRepository].
@@ -13,13 +14,21 @@ class CatalogDb implements CatalogRepository {
   static final CatalogDb instance = CatalogDb._();
 
   Database? _db;
+  Future<void>? _initFuture;
 
   @override
   Future<void> init() async {
     if (_db != null) return;
+    _initFuture ??= _doInit();
+    return _initFuture!;
+  }
+
+  Future<void> _doInit() async {
     final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'catalog.db');
+    await CatalogSeedLoader.ensureSeeded(path);
     _db = await openDatabase(
-      join(dbPath, 'catalog.db'),
+      path,
       version: 3,
       onCreate: (db, version) async {
         await db.execute('''
@@ -38,7 +47,7 @@ class CatalogDb implements CatalogRepository {
             'CREATE INDEX idx_products_name ON products(name)');
         await db.execute(
             'CREATE INDEX idx_products_category ON products(category)');
-        await db.execute('''
+        await db.execute(''' 
           CREATE TABLE pending_deletes (
             barcode      TEXT PRIMARY KEY,
             deleted_at   INTEGER NOT NULL
@@ -47,7 +56,7 @@ class CatalogDb implements CatalogRepository {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          await db.execute('''
+          await db.execute(''' 
             CREATE TABLE IF NOT EXISTS pending_deletes (
               barcode      TEXT PRIMARY KEY,
               deleted_at   INTEGER NOT NULL
@@ -77,22 +86,27 @@ class CatalogDb implements CatalogRepository {
   }
 
   @override
-  Future<List<CatalogEntry>> all({String? search}) async {
+  Future<List<CatalogEntry>> all({String? search, int? limit, int? offset}) async {
     final db = await _database;
-    final rows = (search != null && search.trim().isNotEmpty)
-        ? await db.query(
-            'products',
-            where: 'name LIKE ? OR barcode LIKE ? OR category LIKE ? '
-                'OR name_ar LIKE ?',
-            whereArgs: [
-              '%$search%',
-              '%$search%',
-              '%$search%',
-              '%$search%',
-            ],
-            orderBy: 'updated_at DESC',
-          )
-        : await db.query('products', orderBy: 'updated_at DESC');
+    String where = '';
+    List<Object?> args = [];
+    if (search != null && search.trim().isNotEmpty) {
+      where = 'WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? OR name_ar LIKE ?';
+      args = ['%$search%', '%$search%', '%$search%', '%$search%'];
+    }
+    String sql = 'SELECT * FROM products ${where} ORDER BY updated_at DESC';
+    if (limit != null) {
+      sql += ' LIMIT ?';
+      args.add(limit);
+      if (offset != null) {
+        sql += ' OFFSET ?';
+        args.add(offset);
+      }
+    } else if (offset != null) {
+      sql += ' LIMIT -1 OFFSET ?';
+      args.add(offset);
+    }
+    final rows = await db.rawQuery(sql, args);
     return rows.map(CatalogEntry.fromMap).toList();
   }
 
@@ -148,10 +162,15 @@ class CatalogDb implements CatalogRepository {
   }
 
   @override
-  Future<int> count() async {
+  Future<int> count({String? search}) async {
     final db = await _database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) AS c FROM products');
+    String where = '';
+    List<Object?> args = [];
+    if (search != null && search.trim().isNotEmpty) {
+      where = 'WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? OR name_ar LIKE ?';
+      args = ['%$search%', '%$search%', '%$search%', '%$search%'];
+    }
+    final result = await db.rawQuery('SELECT COUNT(*) AS c FROM products $where', args);
     return (result.first['c'] as int?) ?? 0;
   }
 }

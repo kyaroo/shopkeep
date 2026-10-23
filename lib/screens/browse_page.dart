@@ -9,7 +9,9 @@ import 'capture_dialog.dart';
 /// so the owner can author/edit it as an owner override. Degrades gracefully
 /// when the server is unreachable (shows an error, no crash).
 class BrowsePage extends StatefulWidget {
-  const BrowsePage({super.key});
+  final bool localOnly;
+  final void Function(Map<String, dynamic>)? onSelect;
+  const BrowsePage({super.key, this.localOnly = false, this.onSelect});
 
   @override
   State<BrowsePage> createState() => _BrowsePageState();
@@ -66,11 +68,17 @@ class _BrowsePageState extends State<BrowsePage> {
       setState(() => _loading = true);
     }
     final provider = context.read<CatalogProvider>();
-    final result = await provider.browseServer(
-      q: _search.text.trim(),
-      limit: _pageSize,
-      offset: _offset,
-    );
+    final result = widget.localOnly
+        ? await provider.browseLocal(
+            q: _search.text.trim(),
+            limit: _pageSize,
+            offset: _offset,
+          )
+        : await provider.browseServer(
+            q: _search.text.trim(),
+            limit: _pageSize,
+            offset: _offset,
+          );
     if (!mounted) return;
     if (result == null) {
       setState(() {
@@ -104,6 +112,11 @@ class _BrowsePageState extends State<BrowsePage> {
 
   Future<void> _openProduct(dynamic p) async {
     final map = p as Map<String, dynamic>;
+    if (widget.onSelect != null) {
+      widget.onSelect!(map);
+      if (mounted) Navigator.of(context).pop(map);
+      return;
+    }
     await showDialog(
       context: context,
       builder: (_) => CaptureDialog(

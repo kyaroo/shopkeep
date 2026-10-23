@@ -35,6 +35,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/lang/
+    - assets/catalog_seed.db
   fonts:
     - family: Tajawal
       fonts:

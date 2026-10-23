@@ -161,6 +161,39 @@ class CatalogProvider with ChangeNotifier {
     await load();
   }
 
+  bool get configured {
+    final c = _syncConfig;
+    return c != null && c.isConfigured;
+  }
+
+  /// Read-only local browse (no network). Returns the same shape as
+  /// [browseServer] so BrowsePage can render either source.
+  Future<Map<String, dynamic>?> browseLocal({
+    String q = '',
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    await _repo.init();
+    final entries = await _repo.all(search: q, limit: limit, offset: offset);
+    final total = await _repo.count(search: q);
+    return {
+      'total': total,
+      'limit': limit,
+      'offset': offset,
+      'products': entries
+          .map((e) => {
+                'barcode': e.barcode,
+                'name': e.name,
+                'name_ar': e.nameAr,
+                'name_en': e.nameEn,
+                'category': e.category,
+                'origin': 'local',
+                'image_url': null,
+              })
+          .toList(),
+    };
+  }
+
   Future<int> count() => _repo.count();
 
   // ---- sync (on-demand only) -------------------------------------------

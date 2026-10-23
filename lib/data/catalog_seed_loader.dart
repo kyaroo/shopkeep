@@ -1,0 +1,73 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart' show rootBundle;
+
+/// Best-effort copy of the bundled `assets/catalog_seed.db` to [dbPath] on
+/// first launch. Never overwrites an existing DB (so refreshes/updates are
+/// preserved) and never throws — failures fall back to an empty DB.
+class CatalogSeedLoader {
+  CatalogSeedLoader._();
+
+  static const assetPath = 'assets/catalog_seed.db';
+
+  /// Returns true if a seed was copied.
+  static Future<bool> ensureSeeded(String dbPath) async {
+    final file = File(dbPath);
+    if (file.existsSync()) return false;
+
+    Uint8List? bytes;
+    try {
+      final data = await rootBundle.load(assetPath);
+      bytes = data.buffer.asUint8List();
+    } catch (_) {
+      return false;
+    }
+    if (bytes == null || bytes.isEmpty) return false;
+
+    final tmp = File('$dbPath.tmp');
+    try {
+      await tmp.writeAsBytes(bytes, flush: true);
+      // Validate before promoting.
+      final check = await _quickCheck(tmp.path);
+      if (check != 'ok') {
+        await _safeDelete(tmp);
+        return false;
+      }
+      if (file.existsSync()) {
+        // Race: another caller seeded first.
+        await _safeDelete(tmp);
+        return false;
+      }
+      await tmp.rename(dbPath);
+      return true;
+    } catch (_) {
+      await _safeDelete(tmp);
+      return false;
+    }
+  }
+
+  static Future<String> _quickCheck(String path) async {
+    // Lightweight validation without opening via sqflite (which may not be
+    // initialised in every context). Just check the SQLite header magic.
+    try {
+      final f = File(path);
+      final head = await f.openRead(0, 16).first;
+      // SQLite database file header starts with "SQLite format 3\0".
+      const magic = [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00];
+      if (head.length < 16) return 'bad';
+      for (var i = 0; i < 16; i++) {
+        if (head[i] != magic[i]) return 'bad';
+      }
+      return 'ok';
+    } catch (_) {
+      return 'bad';
+    }
+  }
+
+  static Future<void> _safeDelete(File f) async {
+    try {
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
+}

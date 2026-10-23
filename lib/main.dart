@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
+import 'providers/catalog_provider.dart';
 import 'data/config.dart';
 import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
@@ -55,8 +56,15 @@ class MyhanoutApp extends StatelessWidget {
       startLocale: const Locale('fr'),
       useOnlyLangCode: true,
       saveLocale: true,
-      child: ChangeNotifierProvider(
-        create: (_) => CartProvider(shopKey, businessName: businessName),
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+            create: (_) => CartProvider(shopKey, businessName: businessName),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => CatalogProvider()..loadSyncConfig(),
+          ),
+        ],
         child: const LocalizedApp(),
       ),
     );

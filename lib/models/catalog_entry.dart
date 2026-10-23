@@ -101,8 +101,8 @@ class CatalogEntry {
 abstract class CatalogRepository {
   Future<void> init();
   Future<CatalogEntry?> get(String barcode);
-  Future<List<CatalogEntry>> all({String? search});
+  Future<List<CatalogEntry>> all({String? search, int? limit, int? offset});
   Future<void> upsert(CatalogEntry entry);
   Future<void> delete(String barcode);
-  Future<int> count();
+  Future<int> count({String? search});
 }
