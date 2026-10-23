@@ -8,6 +8,7 @@ import '../data/config.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
 import '../app_state.dart';
+import '../build_config.dart';
 
 /// Settings screen: business name, shop management, export/import.
 class SettingsScreen extends StatefulWidget {
@@ -247,6 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (kIsAdmin) ...[
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -317,6 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          ],
           const SizedBox(height: 12),
           Card(
             child: Padding(

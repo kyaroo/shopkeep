@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../data/config.dart';
-import '../theme.dart';
+import '../build_config.dart';
 
 /// Shop entry screen: the shopkeeper enters the shop code provided by the admin.
 ///
@@ -143,11 +143,13 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
                     )
                   : Text('joinShop'.tr()),
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: _addShop,
-              child: Text('addShop'.tr()),
-            ),
+            if (kIsAdmin) ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _addShop,
+                child: Text('addShop'.tr()),
+              ),
+            ],
           ],
         ),
       ),
