@@ -18,12 +18,18 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
   late final TextEditingController _token;
   late final TextEditingController _device;
 
+  bool _catalogOpen = false;
+  bool _loadingOpen = false;
+
   @override
   void initState() {
     super.initState();
     _url = TextEditingController(text: widget.config.url ?? '');
     _token = TextEditingController(text: widget.config.token ?? '');
     _device = TextEditingController(text: widget.config.deviceId);
+    if (widget.config.isConfigured) {
+      _fetchOpenState();
+    }
   }
 
   @override
@@ -32,6 +38,38 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
     _token.dispose();
     _device.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchOpenState() async {
+    setState(() => _loadingOpen = true);
+    try {
+      final client = widget.config.client();
+      final open = await client.getCatalogOpen();
+      client.close();
+      if (mounted) setState(() => _catalogOpen = open);
+    } catch (_) {
+      // ignore; keep default
+    } finally {
+      if (mounted) setState(() => _loadingOpen = false);
+    }
+  }
+
+  Future<void> _toggleOpen(bool value) async {
+    setState(() => _loadingOpen = true);
+    try {
+      final client = widget.config.client();
+      final open = await client.setCatalogOpen(value);
+      client.close();
+      if (mounted) setState(() => _catalogOpen = open);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingOpen = false);
+    }
   }
 
   Future<void> _save() async {
@@ -76,6 +114,15 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
               decoration: const InputDecoration(labelText: 'Device ID'),
             ),
             const SizedBox(height: 12),
+            SwitchListTile(
+              title: const Text('Accept pushes (server open)'),
+              value: _catalogOpen,
+              onChanged: _loadingOpen ? null : _toggleOpen,
+              subtitle: _loadingOpen
+                  ? const Text('Loading...')
+                  : Text(_catalogOpen ? 'Pushes enabled' : 'Pushes disabled'),
+            ),
+            const SizedBox(height: 8),
             const Text(
               'Sync is manual only — tap "Sync now" in the menu. The app works '
               'fully offline without a server.',

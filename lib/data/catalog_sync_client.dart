@@ -95,6 +95,38 @@ class CatalogSyncClient {
   }
 
   void close() => _client.close();
+  Future<bool> getCatalogOpen() async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/admin/catalog-open'), headers: _headers)
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('catalog-open ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return data['open'] == true;
+  }
+
+  /// Toggles whether the server accepts pushes.
+  Future<bool> setCatalogOpen(bool open) async {
+    final resp = await _client
+        .post(
+          Uri.parse('$baseUrl/v1/admin/catalog-open'),
+          headers: _headers,
+          body: jsonEncode({'open': open}),
+        )
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('catalog-open ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return data['open'] == true;
+  }
 
   /// Resolves a barcode against the server catalog (read API). Returns the
   /// canonical fields on hit, or null on 404. Throws SyncException/SyncAuth
