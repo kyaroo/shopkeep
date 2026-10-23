@@ -297,6 +297,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     } else {
       if (widget.initialBarcode != null) _barcode.text = widget.initialBarcode!;
       if (widget.initialName != null) _name.text = widget.initialName!;
+      if (_threshold.text.isEmpty) _threshold.text = '5';
+      if (_stock.text.isEmpty) _stock.text = '0';
     }
   }
 
@@ -348,8 +350,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       name: _name.text.trim(),
       barcode: _barcode.text.trim().isEmpty ? null : _barcode.text.trim(),
       priceCents: parseDirhamsToCents(_price.text.trim()),
-      stockQty: int.parse(_stock.text.trim()),
-      lowStockThreshold: int.parse(_threshold.text.trim()),
+      stockQty: int.tryParse(_stock.text.trim()) ?? 0,
+      lowStockThreshold: int.tryParse(_threshold.text.trim()) ?? 5,
     );
     await Provider.of<CartProvider>(context, listen: false).saveProduct(p);
     if (mounted) Navigator.pop(context, p);
