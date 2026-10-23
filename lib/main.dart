@@ -76,7 +76,26 @@ class AdminSetupApp extends StatelessWidget {
       startLocale: const Locale('fr'),
       useOnlyLangCode: true,
       saveLocale: true,
-      child: const AdminSetupScreen(),
+      child: const _AdminLocalizedApp(),
+    );
+  }
+}
+
+class _AdminLocalizedApp extends StatelessWidget {
+  const _AdminLocalizedApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'myhanoutadmin',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      theme: AppPalette.theme(
+        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
+      ),
+      home: const AdminSetupScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
