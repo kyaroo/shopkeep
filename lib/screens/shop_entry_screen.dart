@@ -4,6 +4,7 @@ import '../data/config.dart';
 import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
 import '../build_config.dart';
+import '../app_state.dart';
 
 /// Shop entry screen: the shopkeeper enters the shop code provided by the admin.
 ///
@@ -62,7 +63,8 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
       }
       await Config.setCurrentShopKey(code);
       await Config.saveBusinessName(name);
-      if (mounted) Navigator.of(context).pop();
+      appShopKeyNotifier.value = code;
+      appBusinessNameNotifier.value = name;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -29,6 +29,21 @@ void main() async {
   // 1. No shops yet → admin setup (add first shop).
   // 2. Else current shop exists → open it.
   // 3. Else → first-run onboarding.
+  if (!kIsAdmin) {
+    final active = await Config.getCurrentShopKey();
+    if (active.isNotEmpty && active != 'default') {
+      final businessName = await Config.getBusinessName();
+      appShopKeyNotifier.value = active;
+      appBusinessNameNotifier.value = businessName;
+      runApp(EndUserHost());
+      return;
+    }
+    appShopKeyNotifier.value = '';
+    appBusinessNameNotifier.value = 'Maison du Marché';
+    runApp(EndUserHost());
+    return;
+  }
+
   final shopList = await Config.getShopList();
   if (shopList.isEmpty) {
     if (kIsAdmin) {
@@ -162,6 +177,28 @@ class ShopHost extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: appShopKeyNotifier,
       builder: (context, shopKey, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: appBusinessNameNotifier,
+          builder: (context, businessName, _) {
+            return MyhanoutApp(key: ValueKey(shopKey), shopKey: shopKey, businessName: businessName);
+          },
+        );
+      },
+    );
+  }
+}
+
+class EndUserHost extends StatelessWidget {
+  const EndUserHost({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: appShopKeyNotifier,
+      builder: (context, shopKey, _) {
+        if (shopKey.isEmpty) {
+          return ShopEntryApp();
+        }
         return ValueListenableBuilder<String>(
           valueListenable: appBusinessNameNotifier,
           builder: (context, businessName, _) {
