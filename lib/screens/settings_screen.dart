@@ -7,7 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../data/config.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
-import '../theme.dart';
+import '../app_state.dart';
 
 /// Settings screen: business name, shop management, export/import.
 class SettingsScreen extends StatefulWidget {
@@ -109,12 +109,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _useShop(String key) async {
     await Config.setCurrentShopKey(key);
+    final name = await Config.getBusinessName();
     if (mounted) {
-      setState(() => _currentShopKey = key);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('shopSelected'.tr(namedArgs: {'key': key}))),
       );
+      Navigator.of(context).pop();
     }
+    appShopKeyNotifier.value = key;
+    appBusinessNameNotifier.value = name;
   }
 
   Future<void> _confirmDeleteShop(String key) async {

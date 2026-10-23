@@ -12,6 +12,7 @@ import 'screens/sales_history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/shop_entry_screen.dart';
 import 'theme.dart';
+import 'app_state.dart';
 
 const supportedLocales = [
   Locale('en'),
@@ -41,7 +42,9 @@ void main() async {
   final active = await Config.getCurrentShopKey();
   if (active.isNotEmpty) {
     final businessName = await Config.getBusinessName();
-    runApp(MyhanoutApp(shopKey: active, businessName: businessName));
+    appShopKeyNotifier.value = active;
+    appBusinessNameNotifier.value = businessName;
+    runApp(ShopHost());
     return;
   }
   // Otherwise → first-run onboarding.
@@ -147,6 +150,25 @@ class _AdminLocalizedApp extends StatelessWidget {
       ),
       home: const AdminSetupScreen(),
       debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class ShopHost extends StatelessWidget {
+  const ShopHost({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: appShopKeyNotifier,
+      builder: (context, shopKey, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: appBusinessNameNotifier,
+          builder: (context, businessName, _) {
+            return MyhanoutApp(key: ValueKey(shopKey), shopKey: shopKey, businessName: businessName);
+          },
+        );
+      },
     );
   }
 }
