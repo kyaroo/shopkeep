@@ -25,11 +25,11 @@ class SyncConfig {
       (url != null && url!.trim().isNotEmpty) &&
       (token != null && token!.trim().isNotEmpty);
 
-  static Future<SyncConfig> load() async {
+  static Future<SyncConfig> load({String? defaultUrl, String? defaultToken}) async {
     final prefs = await SharedPreferences.getInstance();
     return SyncConfig(
-      url: prefs.getString(_kUrl),
-      token: prefs.getString(_kToken),
+      url: prefs.getString(_kUrl) ?? defaultUrl,
+      token: prefs.getString(_kToken) ?? defaultToken,
       lastSyncedAt: prefs.getInt(_kLastSync) ?? 0,
       deviceId: prefs.getString(_kDevice) ?? 'mapper-owner-01',
     );

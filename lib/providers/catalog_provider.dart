@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/catalog_entry.dart';
+import '../build_config.dart';
 import '../data/catalog_db.dart';
 import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
@@ -199,7 +200,12 @@ class CatalogProvider with ChangeNotifier {
   // ---- sync (on-demand only) -------------------------------------------
 
   Future<void> loadSyncConfig() async {
-    _syncConfig = await SyncConfig.load();
+    _syncConfig = await SyncConfig.load(
+      defaultUrl: kIsAdmin ? 'https://vpshermes.tail48f535.ts.net:8444' : null,
+      defaultToken: kIsAdmin
+          ? 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c'
+          : null,
+    );
     notifyListeners();
   }
 
