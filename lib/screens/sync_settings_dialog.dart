@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../providers/catalog_provider.dart';
 import '../data/sync_config.dart';
+import '../theme.dart';
 
 /// Lets the owner set the sync server URL + token. Fully optional — the app
 /// works offline without it. Sync stays manual ("Sync now"), never automatic.
@@ -126,7 +128,7 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
             const Text(
               'Sync is manual only — tap "Sync now" in the menu. The app works '
               'fully offline without a server.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: AppPalette.surfaceVariant),
             ),
           ],
         ),
@@ -134,9 +136,9 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text('cancel'.tr()),
         ),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: _save, child: Text('save'.tr())),
       ],
     );
   }

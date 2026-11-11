@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
+import '../data/sync_service.dart';
 import '../providers/catalog_provider.dart';
+import '../models/catalog_entry.dart';
 import 'catalog_scan_page.dart';
 import 'capture_dialog.dart';
 import 'sync_settings_dialog.dart';
@@ -24,7 +27,7 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
     _search.addListener(() {
       context.read<CatalogProvider>().load(search: _search.text.trim());
     });
-    context.read<CatalogProvider>().loadSyncConfig();
+    context.read<SyncService>().loadSyncConfig();
   }
 
   Future<void> _scan() async {
@@ -67,19 +70,19 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
   Future<void> _syncNow() async {
     final ok = await context.read<CatalogProvider>().syncNow();
     if (!mounted) return;
-    final msg = context.read<CatalogProvider>().syncMessage ?? '';
+    final msg = context.read<SyncService>().syncMessage ?? '';
     if (msg.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
-          backgroundColor: ok ? null : Colors.red,
+          backgroundColor: ok ? null : Theme.of(context).colorScheme.error,
         ),
       );
     }
   }
 
   void _openSyncSettings() {
-    final config = context.read<CatalogProvider>().syncConfig;
+    final config = context.read<SyncService>().syncConfig;
     if (config == null) return;
     showDialog(
       context: context,
@@ -91,6 +94,32 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const BrowsePage()),
+    );
+  }
+
+  Widget _productLeading(CatalogEntry e) {
+    if (e.photo != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.memory(
+          e.photo!,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    // No embedded photo: branded market glyph (market-tint teal) instead of the
+    // former grey `Icons.inventory_2` fallback, so every product row has a
+    // consistent small product mark.
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Icon(Icons.store, color: Colors.white, size: 20),
     );
   }
 
@@ -170,37 +199,30 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
                         itemBuilder: (_, i) {
                           final e = entries[i];
                           return ListTile(
-                            leading: e.photo != null
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Image.memory(e.photo!,
-                                        width: 44, height: 44, fit: BoxFit.cover),
-                                  )
-                                : const CircleAvatar(
-                                    child: Icon(Icons.inventory_2)),
+                            leading: _productLeading(e),
                             title: Text(e.name),
                             subtitle: Text([
                               e.category,
                               e.barcode,
                             ].where((s) => s != null && s.isNotEmpty).join('  •  ')),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red),
+                              icon: Icon(Icons.delete_outline,
+                                  color: Theme.of(context).colorScheme.error),
                               tooltip: 'Delete',
                               onPressed: () async {
                                 final ok = await showDialog<bool>(
                                   context: context,
                                   builder: (_) => AlertDialog(
-                                    title: const Text('Delete product?'),
+                                    title: Text('deleteProduct'.tr()),
                                     content: Text('Remove "${e.name}" from the catalog?'),
                                     actions: [
                                       TextButton(
                                           onPressed: () => Navigator.pop(context, false),
-                                          child: const Text('Cancel')),
+                                          child: Text('cancel'.tr())),
                                       TextButton(
                                           onPressed: () => Navigator.pop(context, true),
-                                          child: const Text('Delete',
-                                              style: TextStyle(color: Colors.red))),
+                                          child: Text('delete'.tr(),
+                                              style: TextStyle(color: Theme.of(context).colorScheme.error))),
                                     ],
                                   ),
                                 );

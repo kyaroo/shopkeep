@@ -9,6 +9,11 @@ class SyncConfig {
   static const _kLastSync = 'sync_last_synced_at';
   static const _kDevice = 'sync_device_id';
 
+  // Centralized defaults (override via SyncConfig.load(defaultUrl:/defaultToken:) for dev).
+  static const String defaultUrl = 'https://catalog.myhanout.ma';
+  static const String defaultToken =
+      'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c';
+
   String? url;
   String? token;
   int lastSyncedAt;
@@ -28,8 +33,8 @@ class SyncConfig {
   static Future<SyncConfig> load({String? defaultUrl, String? defaultToken}) async {
     final prefs = await SharedPreferences.getInstance();
     return SyncConfig(
-      url: prefs.getString(_kUrl) ?? defaultUrl,
-      token: prefs.getString(_kToken) ?? defaultToken,
+      url: prefs.getString(_kUrl) ?? defaultUrl ?? SyncConfig.defaultUrl,
+      token: prefs.getString(_kToken) ?? defaultToken ?? SyncConfig.defaultToken,
       lastSyncedAt: prefs.getInt(_kLastSync) ?? 0,
       deviceId: prefs.getString(_kDevice) ?? 'mapper-owner-01',
     );
@@ -43,9 +48,20 @@ class SyncConfig {
     await prefs.setString(_kDevice, deviceId);
   }
 
-  CatalogSyncClient client() => CatalogSyncClient(
-        baseUrl: url!.trim(),
-        token: token!.trim(),
-        deviceId: deviceId,
-      );
+  CatalogSyncClient client() => clientFrom(this);
+
+  /// Convenience factory: load persisted config (with app defaults) and return
+  /// a ready-to-use client. Centralizes construction across screens/providers.
+  static Future<CatalogSyncClient> defaultClient() async {
+    final cfg = await load();
+    return clientFrom(cfg);
+  }
+
+  static CatalogSyncClient clientFrom(SyncConfig cfg) {
+    return CatalogSyncClient(
+      baseUrl: (cfg.url ?? defaultUrl).trim(),
+      token: (cfg.token ?? defaultToken).trim(),
+      deviceId: cfg.deviceId,
+    );
+  }
 }

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/catalog_entry.dart';
 import '../providers/catalog_provider.dart';
@@ -145,7 +147,7 @@ class _CaptureDialogState extends State<CaptureDialog> {
               ),
               TextFormField(
                 controller: _nameAr,
-                textDirection: TextDirection.rtl,
+                textDirection: ui.TextDirection.rtl,
                 decoration: InputDecoration(
                   labelText: 'Name (Arabic)',
                   suffixIcon: _suggesting
@@ -200,14 +202,14 @@ class _CaptureDialogState extends State<CaptureDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text('cancel'.tr()),
         ),
         TextButton(
           onPressed: _saving ? null : _save,
           child: _saving
               ? const SizedBox(
                   width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Save'),
+              : Text('save'.tr())
         ),
       ],
     );

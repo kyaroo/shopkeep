@@ -9,7 +9,7 @@ import '../models/catalog_entry.dart';
 /// it, so a remote implementation is a drop-in replacement for this class.
 /// A `pending_deletes` table records tombstones so a delete reaches the server
 /// on the next manual sync (Option B), even though the row is gone locally.
-class CatalogDb implements CatalogRepository {
+class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
   CatalogDb._();
   static final CatalogDb instance = CatalogDb._();
 

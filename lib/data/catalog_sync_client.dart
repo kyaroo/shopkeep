@@ -109,7 +109,11 @@ class CatalogSyncClient {
         .post(
           Uri.parse('$baseUrl/v1/shops'),
           headers: _headers,
-          body: jsonEncode({'shop_key': shopKey, 'business_name': businessName}),
+          body: jsonEncode({
+            'shop_key': shopKey,
+            'business_name': businessName,
+            'device_id': deviceId,
+          }),
         )
         .timeout(const Duration(seconds: 12));
     if (resp.statusCode == 401 || resp.statusCode == 403) {
@@ -137,6 +141,19 @@ class CatalogSyncClient {
   }
 
   void close() => _client.close();
+
+  /// Deletes a shop on the server (admin provisioning).
+  Future<void> deleteShop(String shopKey) async {
+    final resp = await _client
+        .delete(Uri.parse('$baseUrl/v1/shops/$shopKey'), headers: _headers)
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200 && resp.statusCode != 204) {
+      throw SyncException('delete shop ${resp.statusCode}: ${resp.body}');
+    }
+  }
   Future<bool> getCatalogOpen() async {
     final resp = await _client
         .get(Uri.parse('$baseUrl/v1/admin/catalog-open'), headers: _headers)

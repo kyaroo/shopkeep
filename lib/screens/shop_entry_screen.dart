@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
 import '../data/config.dart';
+import '../data/shop_provisioning_service.dart';
 import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
 import '../build_config.dart';
 import '../app_state.dart';
+import '../utils/slug.dart';
 import '../data/provisioning.dart';
 import 'qr_scan_page.dart';
 
@@ -33,29 +36,38 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   }
 
   Future<void> _handleToken(String token) async {
-    final payload = Provisioning.verify(token);
-    if (payload == null) {
+    try {
+      final payload = Provisioning.verify(token);
+      if (payload == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('invalidShopCode'.tr())),
+          );
+        }
+        return;
+      }
+      final code = (payload['shop_key'] as String?)?.trim().toLowerCase();
+      final name = payload['business_name'] as String?;
+      if (code == null || code.isEmpty || name == null || name.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('invalidShopCode'.tr())),
+          );
+        }
+        return;
+      }
+      await Config.setCurrentShopKey(code);
+      await Config.saveBusinessName(name);
+      if (!mounted) return;
+      context.read<AppState>().shopKey = code;
+      context.read<AppState>().businessName = name;
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('invalidShopCode'.tr())),
         );
       }
-      return;
     }
-    final code = (payload['shop_key'] as String?)?.trim().toLowerCase();
-    final name = payload['business_name'] as String?;
-    if (code == null || code.isEmpty || name == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('invalidShopCode'.tr())),
-        );
-      }
-      return;
-    }
-    await Config.setCurrentShopKey(code);
-    await Config.saveBusinessName(name);
-    appShopKeyNotifier.value = code;
-    appBusinessNameNotifier.value = name;
   }
   Future<void> _joinShop() async {
     final code = _codeController.text.trim().toLowerCase();
@@ -81,11 +93,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
 
     // End-user: validate against server registry.
     try {
-      final cfg = await SyncConfig.load(
-        defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
-        defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
-      );
-      final client = CatalogSyncClient.fromConfig(cfg);
+      final client = await SyncConfig.defaultClient();
       final name = await client.getShop(code);
       client.close();
       if (name == null) {
@@ -99,12 +107,24 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
       }
       await Config.setCurrentShopKey(code);
       await Config.saveBusinessName(name);
-      appShopKeyNotifier.value = code;
-      appBusinessNameNotifier.value = name;
-    } catch (e) {
+      context.read<AppState>().shopKey = code;
+      context.read<AppState>().businessName = name;
+    } on SyncAuthException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('invalidShopCode'.tr())),
+          SnackBar(content: Text('authFailed'.tr())),
+        );
+      }
+    } on SyncException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('serverError'.tr())),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('serverUnreachable'.tr())),
         );
       }
     }
@@ -114,10 +134,16 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   Future<void> _addShop() async {
     final nameController = TextEditingController();
     final keyController = TextEditingController();
+    String lastAutoKey = '';
     nameController.addListener(() {
-      if (keyController.text.isEmpty) {
-        keyController.text = _slugify(nameController.text);
+      final auto = slugify(nameController.text);
+      if (keyController.text.isEmpty || keyController.text == lastAutoKey) {
+        keyController.text = auto;
+        lastAutoKey = auto;
       }
+    });
+    keyController.addListener(() {
+      if (keyController.text != lastAutoKey) lastAutoKey = '';
     });
     final result = await showDialog<bool>(
       context: context,
@@ -149,12 +175,24 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
           TextButton(
             onPressed: () async {
               final name = nameController.text.trim();
-              final key = keyController.text.trim().toLowerCase();
-              if (name.isEmpty || key.isEmpty) return;
-              await Config.addShop(key, name);
-              await Config.setCurrentShopKey(key);
-              await Config.saveBusinessName(name);
-              if (context.mounted) Navigator.pop(context, true);
+              final keyInput = keyController.text.trim();
+              if (name.isEmpty) return;
+              try {
+                await ShopProvisioningService.createShop(
+                  name: name,
+                  key: keyInput.isEmpty ? null : keyInput,
+                );
+                if (context.mounted) Navigator.pop(context, true);
+              } catch (e) {
+                if (context.mounted) {
+                  final msg = e is DuplicateShopKeyException
+                      ? 'shopKeyDuplicate'.tr()
+                      : 'shopKeyRequired'.tr();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(msg)),
+                  );
+                }
+              }
             },
             child: Text('createShop'.tr()),
           ),
@@ -166,10 +204,6 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     }
   }
 
-  String _slugify(String input) {
-    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
-  }
-
   @override
   void dispose() {
     _codeController.dispose();
@@ -179,13 +213,13 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('myhanoutadmin')),
+      appBar: AppBar(title: Text('appName'.tr())),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.point_of_sale, size: 64, color: Colors.teal),
+            Icon(Icons.point_of_sale, size: 64, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 24),
             Text(
               'shopEntryTitle'.tr(),
@@ -195,7 +229,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
             const SizedBox(height: 8),
             Text('shopEntrySubtitle'.tr(),
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     )),
             const SizedBox(height: 24),
             TextField(

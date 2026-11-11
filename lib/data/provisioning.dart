@@ -24,7 +24,7 @@ class Provisioning {
   }
 
   /// Verifies signature and expiry. Returns payload map if valid, else null.
-  static Map<String, dynamic>? verify(String token, {Duration maxAge = const Duration(minutes: 10)}) {
+  static Map<String, dynamic>? verify(String token, {Duration maxAge = const Duration(minutes: 30)}) {
     final parts = token.split('.');
     if (parts.length != 2) return null;
     final payloadB64 = parts[0];

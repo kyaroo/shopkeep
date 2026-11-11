@@ -106,3 +106,14 @@ abstract class CatalogRepository {
   Future<void> delete(String barcode);
   Future<int> count({String? search});
 }
+
+/// Capability subset of a [CatalogRepository] that the sync layer needs:
+/// the rows changed since a watermark, and the pending tombstones. Keeps the
+/// sync layer decoupled from the full repository surface and lets future
+/// remote implementations opt in to delta sync without changing the sync
+/// service or provider code.
+abstract class CatalogDeltaRepository {
+  Future<List<CatalogEntry>> changedSince(int sinceMs);
+  Future<List<String>> pendingDeletes();
+  Future<void> clearPendingDelete(String barcode);
+}

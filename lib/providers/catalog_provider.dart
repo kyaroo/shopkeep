@@ -1,32 +1,46 @@
 import 'package:flutter/material.dart';
 import '../models/catalog_entry.dart';
-import '../build_config.dart';
 import '../data/catalog_db.dart';
 import '../data/sync_config.dart';
-import '../data/catalog_sync_client.dart';
+import '../data/sync_service.dart';
 
 /// App-wide catalog state. UI talks to this; this talks to [CatalogRepository].
 /// Swapping SQLite for the remote API later changes only the repository the
 /// constructor receives — no UI or provider logic changes.
 class CatalogProvider with ChangeNotifier {
   final CatalogRepository _repo;
+  final CatalogDeltaRepository _deltaRepo;
+  final SyncService _sync;
   List<CatalogEntry> _entries = [];
   bool _loading = false;
   String _search = '';
 
-  // Sync state (on-demand only; nothing here auto-triggers).
-  bool _syncing = false;
-  String? _syncMessage;
-  SyncConfig? _syncConfig;
+  /// [repo] is the catalog SSOT; [deltaRepo] is the delta-sync capability
+  /// used by [syncNow] (DA-3: typed to the protocol, no runtime cast).
+  /// Both default to the shared [CatalogDb] singleton. A provided [repo]
+  /// that itself implements [CatalogDeltaRepository] is reused for delta
+  /// sync when [deltaRepo] is omitted.
+  CatalogProvider(
+      {CatalogRepository? repo,
+      CatalogDeltaRepository? deltaRepo,
+      SyncService? sync})
+      : _repo = repo ?? CatalogDb.instance,
+        _deltaRepo = _resolveDeltaRepo(repo, deltaRepo),
+        _sync = sync ?? SyncService();
 
-  CatalogProvider({CatalogRepository? repo})
-      : _repo = repo ?? CatalogDb.instance;
+  /// Picks the delta-sync capability: an explicit [deltaRepo] wins; a [repo]
+  /// that itself implements [CatalogDeltaRepository] is reused; otherwise the
+  /// shared [CatalogDb] singleton (which implements both protocols).
+  static CatalogDeltaRepository _resolveDeltaRepo(
+          CatalogRepository? repo, CatalogDeltaRepository? deltaRepo) =>
+      deltaRepo ??
+      switch (repo) {
+        final CatalogDeltaRepository d => d,
+        _ => CatalogDb.instance,
+      };
 
   List<CatalogEntry> get entries => _entries;
   bool get loading => _loading;
-  bool get syncing => _syncing;
-  String? get syncMessage => _syncMessage;
-  SyncConfig? get syncConfig => _syncConfig;
 
   Future<void> init() => load();
 
@@ -49,7 +63,7 @@ class CatalogProvider with ChangeNotifier {
   /// This does NOT create an owner entry; it only seeds a local cache row and
   /// a prefill. The owner still taps Save to author it (origin=owner).
   Future<Map<String, dynamic>?> resolveFromServer(String barcode) async {
-    final config = _syncConfig ?? await SyncConfig.load();
+    final config = _sync.syncConfig ?? await SyncConfig.load();
     if (!config.isConfigured) return null;
     final client = config.client();
     try {
@@ -105,7 +119,7 @@ class CatalogProvider with ChangeNotifier {
     int limit = 50,
     int offset = 0,
   }) async {
-    final config = _syncConfig ?? await SyncConfig.load();
+    final config = _sync.syncConfig ?? await SyncConfig.load();
     if (!config.isConfigured) return null;
     final client = config.client();
     try {
@@ -163,7 +177,7 @@ class CatalogProvider with ChangeNotifier {
   }
 
   bool get configured {
-    final c = _syncConfig;
+    final c = _sync.syncConfig;
     return c != null && c.isConfigured;
   }
 
@@ -200,81 +214,18 @@ class CatalogProvider with ChangeNotifier {
   // ---- sync (on-demand only) -------------------------------------------
 
   Future<void> loadSyncConfig() async {
-    _syncConfig = await SyncConfig.load(
-      defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
-      defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
-    );
+    await _sync.loadSyncConfig();
     notifyListeners();
   }
 
   Future<void> saveSyncConfig(SyncConfig config) async {
-    await config.save();
-    _syncConfig = config;
+    await _sync.saveSyncConfig(config);
     notifyListeners();
   }
 
-  /// Manual "Sync now". Pushes the delta (entries newer than last_synced_at)
-  /// plus pending tombstones. Never called automatically.
+  /// Delegates to [SyncService]; the sync state lives there.
   Future<bool> syncNow() async {
-    final config = _syncConfig ?? await SyncConfig.load();
-    if (!config.isConfigured) {
-      _syncMessage = 'Sync not configured. Set the server URL and token first.';
-      notifyListeners();
-      return false;
-    }
-
-    _syncing = true;
-    _syncMessage = null;
-    notifyListeners();
-
-    final db = _repo is CatalogDb ? _repo : null;
-    try {
-      final changed = db != null
-          ? await db.changedSince(config.lastSyncedAt)
-          : _entries;
-      final deletes = db != null ? await db.pendingDeletes() : <String>[];
-
-      final client = config.client();
-      final result = await client.push(
-        entries: changed,
-        deleted: deletes,
-        lastSyncedAt: config.lastSyncedAt,
-      );
-      client.close();
-
-      // Advance the watermark and clear synced tombstones on success.
-      config.lastSyncedAt = result.serverNow;
-      await config.save();
-      if (db != null) {
-        for (final b in deletes) {
-          await db.clearPendingDelete(b);
-        }
-      }
-      _syncConfig = config;
-
-      final parts = <String>['Synced ${result.accepted}'];
-      if (deletes.isNotEmpty) parts.add('${deletes.length} deleted');
-      if (result.newerOnServer.isNotEmpty) {
-        parts.add('${result.newerOnServer.length} newer on server (kept)');
-      }
-      _syncMessage = parts.join(', ');
-      notifyListeners();
-      return true;
-    } on SyncAuthException {
-      _syncMessage = 'Sync failed: bad token or URL.';
-      notifyListeners();
-      return false;
-    } on SyncException catch (e) {
-      _syncMessage = 'Sync failed: ${e.message}';
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _syncMessage = 'Sync failed: $e';
-      notifyListeners();
-      return false;
-    } finally {
-      _syncing = false;
-      notifyListeners();
-    }
+    final config = _sync.syncConfig ?? await SyncConfig.load();
+    return _sync.syncNow(repo: _deltaRepo, config: config, entries: _entries);
   }
 }

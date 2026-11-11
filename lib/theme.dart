@@ -44,9 +44,9 @@ class AppSpacing {
 /// Colors are resolved from the theme at the call site (light/dark aware).
 @immutable
 class AppTextStyles extends ThemeExtension<AppTextStyles> {
-  /// [fontFamily] is the app's active face: 'Tajawal' for Arabic, the system
-  /// sans (Roboto) otherwise. Inter is intentionally NOT pinned here — it is a
-  /// follow-up font-asset step, not part of the token system.
+  /// [fontFamily] is the app's active face: 'Tajawal' for Arabic (RTL script)
+  /// and 'Inter' for Latin — 5 static weights (400/500/600/700/800) with
+  /// tabular-figures on money/unit styles. No Roboto is used anywhere.
   final String? fontFamily;
 
   const AppTextStyles(this.fontFamily);
@@ -85,7 +85,8 @@ class AppTextStyles extends ThemeExtension<AppTextStyles> {
   TextStyle linePrice(BuildContext context) => TextStyle(
         fontFamily: fontFamily,
         fontSize: 16.0,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
+        fontFeatures: const [FontFeature.tabularFigures()],
         color: Theme.of(context).colorScheme.onSurface,
         debugLabel: 'AppTextStyles.linePrice',
       );
@@ -129,6 +130,8 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color onWarning;
   final Color danger;
   final Color onDanger;
+  final Color primary;
+  final Color onPrimary;
 
   const AppColors({
     required this.success,
@@ -137,6 +140,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.onWarning,
     required this.danger,
     required this.onDanger,
+    required this.primary,
+    required this.onPrimary,
   });
 
   @override
@@ -147,6 +152,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? onWarning,
     Color? danger,
     Color? onDanger,
+    Color? primary,
+    Color? onPrimary,
   }) {
     return AppColors(
       success: success ?? this.success,
@@ -155,6 +162,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onWarning: onWarning ?? this.onWarning,
       danger: danger ?? this.danger,
       onDanger: onDanger ?? this.onDanger,
+      primary: primary ?? this.primary,
+      onPrimary: onPrimary ?? this.onPrimary,
     );
   }
 
@@ -168,6 +177,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onWarning: Color.lerp(onWarning, other.onWarning, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
       onDanger: Color.lerp(onDanger, other.onDanger, t)!,
+      primary: Color.lerp(primary, other.primary, t)!,
+      onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
     );
   }
 }
@@ -243,6 +254,8 @@ class AppPalette {
     onWarning: onWarning,
     danger: danger,
     onDanger: onDanger,
+    primary: primary,
+    onPrimary: onPrimary,
   );
 
   static const AppColors darkStatus = AppColors(
@@ -252,6 +265,8 @@ class AppPalette {
     onWarning: darkOnWarning,
     danger: darkDanger,
     onDanger: darkOnDanger,
+    primary: darkPrimary,
+    onPrimary: darkOnPrimary,
   );
 
   /// Builds the app [ThemeData] from the Market Trust palette.
@@ -314,6 +329,140 @@ class AppPalette {
       visualDensity: VisualDensity.adaptivePlatformDensity,
       extensions: [status, textStyles],
       scaffoldBackgroundColor: surfaceColor,
+      // ---- Component theme defaults (UI spec v1.0) ----
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+          color: onSurfaceColor,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: false,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: surfaceVariantColor.withValues(alpha: 0.4)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: surfaceVariantColor.withValues(alpha: 0.4)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: primaryColor, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: errorColor, width: 2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: errorColor, width: 2),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: surfaceVariantColor.withValues(alpha: 0.2)),
+        ),
+        labelStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: surfaceVariantColor,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 1,
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        labelStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }

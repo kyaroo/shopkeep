@@ -8,6 +8,7 @@ import '../utils/money.dart';
 import '../theme.dart';
 import 'scan_page.dart';
 import 'browse_page.dart';
+import '../widgets/stock_badge.dart';
 /// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
 Future<void> showProductForm(BuildContext context, {Product? existing, String? initialBarcode, String? initialName}) async {
   final saved = await showDialog<Product>(
@@ -167,11 +168,11 @@ class _InventoryBodyState extends State<InventoryBody> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+Icon(
                               _lowStockOnly
                                   ? Icons.check_circle_outline
                                   : Icons.inventory_2_outlined,
-                              size: 64,
+                              size: 48,
                               color: Theme.of(context)
                                   .extension<AppColors>()!
                                   .success
@@ -199,21 +200,11 @@ class _InventoryBodyState extends State<InventoryBody> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         final p = products[i];
-                        final status = Theme.of(context).extension<AppColors>()!;
-                        final (badgeColor, badgeIcon) = p.isOutOfStock
-                            ? (status.danger, Icons.remove_shopping_cart)
-                            : p.isLowStock
-                                ? (status.warning, Icons.warning_amber)
-                                : (status.success, Icons.check_circle);
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: badgeColor,
-                            child: Icon(
-                              badgeIcon,
-                              color: status.onWarning,
-                              size: 20,
-                            ),
-                          ),
+return ListTile(
+  leading: StockBadge(
+    isOutOfStock: p.isOutOfStock,
+    isLowStock: p.isLowStock,
+  ),
                           title: Text(p.name,
                               style: Theme.of(context)
                                   .extension<AppTextStyles>()!
@@ -386,12 +377,17 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               if (_lookedUp)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('autoFilledHint'.tr(),
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context)
-                              .extension<AppColors>()!
-                              .success)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppPalette.amber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('autoFilledHint'.tr(),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: AppPalette.amberOnSurface)),
+                  ),
                 ),
               TextFormField(
                 controller: _price,
@@ -443,6 +439,30 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ),
       ),
       actions: [
+        if (widget.existing != null)
+          TextButton(
+            onPressed: () async {
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: Text('deleteProduct'.tr()),
+                  content: Text('removeConfirm'.tr(namedArgs: {'name': widget.existing!.name})),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ),
+                  ],
+                ),
+              );
+              if (ok == true && mounted) {
+                await Provider.of<CartProvider>(context, listen: false).deleteProduct(widget.existing!.id!);
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('cancel'.tr())),

@@ -3,15 +3,12 @@ import 'package:easy_localization/easy_localization.dart';
 import '../data/db.dart';
 import '../models/sale.dart';
 import '../utils/money.dart';
+import '../theme.dart';
 import 'sale_detail_screen.dart';
 
-// Per-shop identity: one APK = one shop for MVP.
-// The shopKey is set once at first launch and stored in shared_preferences
-// (not yet implemented — default 'default' covers the single-store MVP).
-String get shopKey => const String.fromEnvironment('SHOP_KEY', defaultValue: 'default');
-
 class SalesHistoryScreen extends StatefulWidget {
-  const SalesHistoryScreen({super.key});
+  final String shopKey;
+  const SalesHistoryScreen({super.key, this.shopKey = 'default'});
 
   @override
   State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
@@ -35,9 +32,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final db = await Db.open(shopKey);
-    final sales = await db.getSales(shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
-    final stats = await db.getSalesStats(shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
+    final db = await Db.open(widget.shopKey);
+    final sales = await db.getSales(widget.shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
+    final stats = await db.getSalesStats(widget.shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
     if (!mounted) return;
     setState(() {
       _sales = sales;
@@ -139,17 +136,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                             subtitle: Text(
                               'itemsCount'.tr(namedArgs: {'count': '${sale.itemCount}'}),
                             ),
-                            trailing: Text(
-                              formatMoney(sale.totalCents),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
+                            trailing: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                formatMoney(sale.totalCents),
+                                style: Theme.of(context)
+                                    .extension<AppTextStyles>()!
+                                    .lineTotal(context),
+                              ),
                             ),
                             onTap: () {
                               Navigator.push(

@@ -49,11 +49,11 @@ class CheckoutBody extends StatelessWidget {
         Expanded(
           child: cart.isEmpty
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.qr_code_scanner,
-                          size: 64,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.qr_code_scanner,
+                            size: 48,
                           color: Theme.of(context)
                               .colorScheme
                               .primary
@@ -69,25 +69,83 @@ class CheckoutBody extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: cart.lines.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (_, i) {
                     final line = cart.lines[i];
                     final p = line.product;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Line 1: product name (wraps freely) + delete.
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    return ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 80),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
                             children: [
                               Expanded(
-                                child: Text(p.name,
-                                    style: Theme.of(context)
-                                        .extension<AppTextStyles>()!
-                                        .name(context)),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(p.name,
+                                        style: Theme.of(context)
+                                            .extension<AppTextStyles>()!
+                                            .name(context)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${formatMoney(p.priceCents)} ${'each'.tr()}',
+                                      style: Theme.of(context)
+                                          .extension<AppTextStyles>()!
+                                          .meta(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                  borderRadius:
+                                      BorderRadius.circular(24),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                          Icons.remove_circle_outline),
+                                      tooltip: 'qtyDecrease'.tr(),
+                                      onPressed: () =>
+                                          cart.setQty(p, line.qty - 1),
+                                    ),
+                                    SizedBox(
+                                      width: 32,
+                                      child: Text('${line.qty}',
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .extension<AppTextStyles>()!
+                                              .name(context)),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                          Icons.add_circle_outline),
+                                      tooltip: 'qtyIncrease'.tr(),
+                                      onPressed: () =>
+                                          cart.setQty(p, line.qty + 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                formatMoney(line.lineTotalCents),
+                                style: Theme.of(context)
+                                    .extension<AppTextStyles>()!
+                                    .lineTotal(context),
                               ),
                               IconButton(
                                 icon: Icon(Icons.delete_outline,
@@ -95,7 +153,6 @@ class CheckoutBody extends StatelessWidget {
                                         .colorScheme
                                         .error),
                                 tooltip: 'removeFromCart'.tr(),
-                                visualDensity: VisualDensity.compact,
                                 onPressed: () {
                                   final removedLine = line;
                                   final removedIndex = i;
@@ -104,8 +161,8 @@ class CheckoutBody extends StatelessWidget {
                                       .showSnackBar(SnackBar(
                                     content: Text('removedFromCart'.tr(
                                         namedArgs: {
-                                            'name': removedLine.product.name
-                                          })),
+                                          'name': removedLine.product.name
+                                        })),
                                     action: SnackBarAction(
                                       label: 'undo'.tr(),
                                       onPressed: () => cart.insertAt(
@@ -116,53 +173,7 @@ class CheckoutBody extends StatelessWidget {
                               ),
                             ],
                           ),
-                          // Line 2: unit price • line total (bold, tabular).
-                          // Own row so a large total never wraps.
-                          Row(
-                            children: [
-                              Text(
-                                  '${formatMoney(p.priceCents)} '
-                                  '${'each'.tr()}',
-                                  style: Theme.of(context)
-                                      .extension<AppTextStyles>()!
-                                      .linePrice(context)),
-                              const Spacer(),
-                              Text(
-                                formatMoney(line.lineTotalCents),
-                                style: Theme.of(context)
-                                    .extension<AppTextStyles>()!
-                                    .lineTotal(context),
-                              ),
-                            ],
-                          ),
-                          // Line 3: quantity stepper.
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                    Icons.remove_circle_outline),
-                                tooltip: 'qtyDecrease'.tr(),
-                                onPressed: () =>
-                                    cart.setQty(p, line.qty - 1),
-                              ),
-                              SizedBox(
-                                width: 32,
-                                child: Text('${line.qty}',
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .extension<AppTextStyles>()!
-                                        .name(context)),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                    Icons.add_circle_outline),
-                                tooltip: 'qtyIncrease'.tr(),
-                                onPressed: () =>
-                                    cart.setQty(p, line.qty + 1),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },
@@ -180,12 +191,26 @@ class CheckoutBody extends StatelessWidget {
                       style: Theme.of(context)
                           .extension<AppTextStyles>()!
                           .label(context)),
-                  Text(
-                    'total'.tr(
-                        namedArgs: {'amount': formatMoney(cart.totalCents)}),
-                    style: Theme.of(context)
-                        .extension<AppTextStyles>()!
-                        .total(context),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('totalLabel'.tr(),
+                          style: Theme.of(context)
+                              .extension<AppTextStyles>()!
+                              .label(context)),
+                      Semantics(
+                        label: 'total ${formatMoney(cart.totalCents)}',
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            formatMoney(cart.totalCents),
+                            style: Theme.of(context)
+                                .extension<AppTextStyles>()!
+                                .total(context),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

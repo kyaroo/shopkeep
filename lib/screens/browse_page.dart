@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/catalog_provider.dart';
+import '../theme.dart';
 import 'capture_dialog.dart';
 
 /// Browse + search the server catalog (the OFF-derived Moroccan namespace).
@@ -202,8 +203,8 @@ class _BrowsePageState extends State<BrowsePage> {
                                     if (isOwner) 'yours',
                                   ].join('  •  ')),
                                   trailing: isOwner
-                                      ? const Icon(Icons.check_circle,
-                                          size: 18, color: Colors.green)
+                                      ? Icon(Icons.check_circle,
+                                          size: 18, color: Theme.of(context).extension<AppColors>()!.success)
                                       : null,
                                   onTap: () => _openProduct(p),
                                 );
@@ -217,6 +218,25 @@ class _BrowsePageState extends State<BrowsePage> {
   }
 }
 
+/// Branded market glyph used as the no-image placeholder in catalog rows.
+/// (Brand teal from the active [ThemeData.colorScheme.secondary].)
+class _ProductGlyph extends StatelessWidget {
+  const _ProductGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Icon(Icons.store, color: Colors.white, size: 20),
+    );
+  }
+}
+
 /// Small network thumbnail with a graceful placeholder (OFF image URLs).
 class _Thumb extends StatelessWidget {
   final String? url;
@@ -225,7 +245,7 @@ class _Thumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (url == null || url!.isEmpty) {
-      return const CircleAvatar(child: Icon(Icons.inventory_2));
+      return const _ProductGlyph();
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
@@ -234,8 +254,7 @@ class _Thumb extends StatelessWidget {
         width: 44,
         height: 44,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            const CircleAvatar(child: Icon(Icons.inventory_2)),
+        errorBuilder: (context, error, stackTrace) => const _ProductGlyph(),
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return const SizedBox(

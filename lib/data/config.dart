@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Application configuration persistence layer.
@@ -23,11 +24,16 @@ class Config {
 
   // ---- Shop list (admin-managed) ----
 
+  static List<String>? _cachedShopList;
+  static Map<String, String>? _cachedShopNames;
+
   static Future<List<String>> getShopList() async {
+    if (_cachedShopList != null) return List<String>.from(_cachedShopList!);
     final prefs = _instance;
     if (prefs == null) return [];
     final raw = prefs.getStringList(_shopList);
-    return raw?.where((s) => s.isNotEmpty).toList() ?? [];
+    _cachedShopList = raw?.where((s) => s.isNotEmpty).toList() ?? [];
+    return List<String>.from(_cachedShopList!);
   }
 
   static Future<void> addShop(String shopKey, String businessName) async {
@@ -37,6 +43,7 @@ class Config {
     if (!list.contains(shopKey)) {
       list.add(shopKey);
       await prefs.setStringList(_shopList, list);
+      _cachedShopList = List<String>.from(list);
     }
   }
 
@@ -44,13 +51,16 @@ class Config {
     final prefs = _instance;
     if (prefs == null) return;
     final list = await getShopList();
-    await prefs.setStringList(_shopList, list.where((s) => s != shopKey).toList());
+    final updated = list.where((s) => s != shopKey).toList();
+    await prefs.setStringList(_shopList, updated);
+    _cachedShopList = List<String>.from(updated);
   }
 
   static Future<void> clearShopList() async {
     final prefs = _instance;
     if (prefs == null) return;
     await prefs.remove(_shopList);
+    _cachedShopList = <String>[];
   }
 
   // ---- Current shop (shopkeeper-selected) ----
@@ -81,7 +91,51 @@ class Config {
     await prefs.setString(_businessName, name);
   }
 
-  // ---- Admin mode toggle ----
+  static const _shopNames = 'shop_names';
+
+  static Future<Map<String, String>> getShopNames() async {
+    if (_cachedShopNames != null) {
+      return Map<String, String>.from(_cachedShopNames!);
+    }
+    final prefs = _instance;
+    if (prefs == null) return {};
+    final raw = prefs.getString(_shopNames);
+    if (raw == null || raw.isEmpty) {
+      _cachedShopNames = {};
+      return {};
+    }
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      _cachedShopNames = decoded.map((k, v) => MapEntry(k, v.toString()));
+      return Map<String, String>.from(_cachedShopNames!);
+    } catch (_) {
+      _cachedShopNames = {};
+      return {};
+    }
+  }
+
+  static Future<String?> getShopBusinessName(String key) async {
+    final names = await getShopNames();
+    return names[key];
+  }
+
+  static Future<void> removeShopBusinessName(String key) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    final names = await getShopNames();
+    names.remove(key);
+    _cachedShopNames = Map<String, String>.from(names);
+    await prefs.setString(_shopNames, jsonEncode(names));
+  }
+
+  static Future<void> saveShopBusinessName(String key, String name) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    final names = await getShopNames();
+    names[key] = name;
+    _cachedShopNames = Map<String, String>.from(names);
+    await prefs.setString(_shopNames, jsonEncode(names));
+  }
 
   static Future<bool> getAdminMode() async {
     final prefs = _instance;

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../build_config.dart';
 import '../data/config.dart';
+import '../data/shop_provisioning_service.dart';
+import '../utils/slug.dart';
 import '../data/provisioning.dart';
 import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
@@ -31,11 +35,18 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
   void initState() {
     super.initState();
     _loadShops();
+    String lastAutoKey = '';
     _shopKeyController.addListener(() {});
     _nameController.addListener(() {
-      if (_shopKeyController.text.isEmpty) {
-        _shopKeyController.text = Provisioning.generateShopKey();
+      final auto = slugify(_nameController.text);
+      if (auto.isEmpty) return;
+      if (_shopKeyController.text.isEmpty || _shopKeyController.text == lastAutoKey) {
+        _shopKeyController.text = auto;
+        lastAutoKey = auto;
       }
+    });
+    _shopKeyController.addListener(() {
+      if (_shopKeyController.text != lastAutoKey) lastAutoKey = '';
     });
   }
 
@@ -52,55 +63,31 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
   Future<void> _addShop() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    final key = _shopKeyController.text.trim().toLowerCase();
-    if (key.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('shopKeyRequired'.tr())),
-        );
-      }
-      return;
-    }
-    final existing = await Config.getShopList();
-    if (existing.contains(key)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('shopKeyDuplicate'.tr())),
-        );
-      }
-      return;
-    }
-    await Config.addShop(key, name);
-    await Config.setCurrentShopKey(key);
-    await Config.saveBusinessName(name);
-    // Register shop on server (best-effort).
+    final requestedKey = _shopKeyController.text.trim();
     try {
-      final cfg = await SyncConfig.load(
-        defaultUrl: 'https://vpshermes.tail48f535.ts.net:8444',
-        defaultToken: 'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c',
+      final key = await ShopProvisioningService.createShop(
+        name: name,
+        key: requestedKey.isEmpty ? null : requestedKey,
       );
-      final client = CatalogSyncClient.fromConfig(cfg);
-      await client.registerShop(key, name);
-      client.close();
-    } catch (_) {
-      // Server may be unreachable; local shop still created.
-    }
-    if (mounted) {
-      _showProvisioningQr(key, name);
-      _nameController.clear();
-      _shopKeyController.clear();
-      _loadShops();
+      if (mounted) {
+        _showProvisioningQr(key, name, ShopProvisioningService.buildProvisioningToken(key, name));
+        _nameController.clear();
+        _shopKeyController.clear();
+        _loadShops();
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e is DuplicateShopKeyException
+            ? 'shopKeyDuplicate'.tr()
+            : 'shopKeyRequired'.tr();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
     }
   }
 
-  void _showProvisioningQr(String shopKey, String businessName) {
-    final payload = {
-      'shop_key': shopKey,
-      'business_name': businessName,
-      'issued_at': DateTime.now().millisecondsSinceEpoch,
-      'nonce': Provisioning.generateShopKey(length: 8),
-    };
-    final token = Provisioning.sign(payload);
+  void _showProvisioningQr(String shopKey, String businessName, String token) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -131,9 +118,17 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text('cancel'.tr())),
           TextButton(
-            onPressed: () {
-              Config.removeShop(key);
+            onPressed: () async {
+              // Best-effort server deletion.
+              try {
+                final client = await SyncConfig.defaultClient();
+                await client.deleteShop(key);
+                client.close();
+              } catch (_) {}
+              await Config.removeShop(key);
+              await Config.removeShopBusinessName(key);
               if (mounted) Navigator.pop(context);
+              _loadShops();
             },
             child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
@@ -202,7 +197,23 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                             return ListTile(
                               title: Text(key),
                               subtitle: Text('shopKey'.tr() + ': ' + key),
-                              trailing: PopupMenuButton<String>(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.qr_code),
+                                    tooltip: 'showQr'.tr(),
+                                    onPressed: () async {
+                                      final name = await Config.getShopBusinessName(key) ?? key;
+                                      if (!mounted) return;
+                                      _showProvisioningQr(
+                                        key,
+                                        name,
+                                        ShopProvisioningService.buildProvisioningToken(key, name),
+                                      );
+                                    },
+                                  ),
+                                  PopupMenuButton<String>(
                                 onSelected: (v) {
                                   if (v == 'delete') _confirmDelete(key);
                                 },
@@ -211,11 +222,13 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                                     value: 'delete',
                                     child: Text('delete'.tr(),
                                         style: TextStyle(
-                                            color: Colors.red)),
+                                            color: Theme.of(context).colorScheme.error)),
                                   ),
                                 ],
                               ),
-                            );
+                            ],
+                          ),
+                        );
                           }),
                       ],
                     ),

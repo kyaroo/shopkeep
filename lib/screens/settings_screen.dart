@@ -4,10 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
 import '../data/config.dart';
+import '../data/shop_provisioning_service.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
 import '../app_state.dart';
+import '../utils/slug.dart';
 import '../build_config.dart';
 
 /// Settings screen: business name, shop management, export/import.
@@ -34,11 +37,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _nameController = TextEditingController();
     _loadBusinessName();
     _loadShops();
+    String lastAutoKey = '';
     _shopKeyController.addListener(() {});
     _shopNameController.addListener(() {
-      if (_shopKeyController.text.isEmpty) {
-        _shopKeyController.text = _slugify(_shopNameController.text);
+      final auto = slugify(_shopNameController.text);
+      if (_shopKeyController.text.isEmpty || _shopKeyController.text == lastAutoKey) {
+        _shopKeyController.text = auto;
+        lastAutoKey = auto;
       }
+    });
+    _shopKeyController.addListener(() {
+      if (_shopKeyController.text != lastAutoKey) lastAutoKey = '';
     });
   }
 
@@ -59,10 +68,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _slugify(String input) {
-    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
-  }
-
   Future<void> _saveBusinessName() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
@@ -77,34 +82,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _addShop() async {
     final name = _shopNameController.text.trim();
     if (name.isEmpty) return;
-    final key = _shopKeyController.text.trim().toLowerCase();
-    if (key.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('shopKeyRequired'.tr())),
-        );
-      }
-      return;
-    }
-    final existing = await Config.getShopList();
-    if (existing.contains(key)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('shopKeyDuplicate'.tr())),
-        );
-      }
-      return;
-    }
-    await Config.addShop(key, name);
-    await Config.setCurrentShopKey(key);
-    await Config.saveBusinessName(name);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('shopCreated'.tr())),
+    final keyInput = _shopKeyController.text.trim();
+    try {
+      await ShopProvisioningService.createShop(
+        name: name,
+        key: keyInput.isEmpty ? null : keyInput,
+        registerOnServer: false,
       );
-      _shopNameController.clear();
-      _shopKeyController.clear();
-      _loadShops();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('shopCreated'.tr())),
+        );
+        _shopNameController.clear();
+        _shopKeyController.clear();
+        _loadShops();
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e is DuplicateShopKeyException
+            ? 'shopKeyDuplicate'.tr()
+            : 'shopKeyRequired'.tr();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
     }
   }
 
@@ -117,8 +118,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       Navigator.of(context).pop();
     }
-    appShopKeyNotifier.value = key;
-    appBusinessNameNotifier.value = name;
+    context.read<AppState>().shopKey = key;
+    context.read<AppState>().businessName = name;
   }
 
   Future<void> _confirmDeleteShop(String key) async {
@@ -176,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('exportFailed' + ' ' + e.toString())),
+          SnackBar(content: Text('exportFailed'.tr() + ' ' + e.toString())),
         );
       }
     }
@@ -201,7 +202,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('importFailed' + ' ' + e.toString())),
+          SnackBar(content: Text('importFailed'.tr() + ' ' + e.toString())),
         );
       }
     }

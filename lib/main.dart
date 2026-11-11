@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
+import 'app_router.dart';
 import 'providers/cart_provider.dart';
 import 'providers/catalog_provider.dart';
 import 'build_config.dart';
@@ -25,84 +26,43 @@ void main() async {
   await EasyLocalization.ensureInitialized();
   await Config.init();
 
-  // Resolve the starting screen.
-  // 1. No shops yet → admin setup (add first shop).
-  // 2. Else current shop exists → open it.
-  // 3. Else → first-run onboarding.
+  // Source of truth for the active shop + business name. Previously these two
+  // `ValueNotifier`s lived at package scope (`main.dart`), which made them a
+  // hidden global dependency of every screen and provider. They are now owned
+  // by [AppState] and exposed via [MultiProvider] at the root.
+  final appState = AppState();
+
   if (!kIsAdmin) {
     final active = await Config.getCurrentShopKey();
     if (active.isNotEmpty && active != 'default') {
       final businessName = await Config.getBusinessName();
-      appShopKeyNotifier.value = active;
-      appBusinessNameNotifier.value = businessName;
-      runApp(EndUserHost());
-      return;
+      appState.shopKey = active;
+      appState.businessName = businessName;
+    } else {
+      appState.shopKey = '';
+      appState.businessName = 'Maison du Marché';
     }
-    appShopKeyNotifier.value = '';
-    appBusinessNameNotifier.value = 'Maison du Marché';
-    runApp(EndUserHost());
+    runApp(AppRouter(appState: appState));
     return;
   }
 
   final shopList = await Config.getShopList();
   if (shopList.isEmpty) {
-    if (kIsAdmin) {
-      runApp(AdminSetupApp());
-    } else {
-      runApp(ShopEntryApp());
-    }
+    runApp(const AdminSetupApp());
     return;
   }
   // If a shop was left active, open it.
   final active = await Config.getCurrentShopKey();
   if (active.isNotEmpty) {
     final businessName = await Config.getBusinessName();
-    appShopKeyNotifier.value = active;
-    appBusinessNameNotifier.value = businessName;
-    runApp(ShopHost());
+    appState.shopKey = active;
+    appState.businessName = businessName;
+    runApp(AppRouter(appState: appState));
     return;
   }
   // Otherwise → first-run onboarding.
-  runApp(AdminSetupApp());
+  runApp(const AdminSetupApp());
 }
-
-class ShopEntryApp extends StatelessWidget {
-  const ShopEntryApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return EasyLocalization(
-      supportedLocales: supportedLocales,
-      path: 'assets/lang',
-      fallbackLocale: const Locale('en'),
-      startLocale: const Locale('fr'),
-      useOnlyLangCode: true,
-      saveLocale: true,
-      child: const _ShopEntryLocalizedApp(),
-    );
-  }
-}
-
-class _ShopEntryLocalizedApp extends StatelessWidget {
-  const _ShopEntryLocalizedApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'myhanout',
-      localizationsDelegates: context.localizationDelegates,
-      supportedLocales: context.supportedLocales,
-      locale: context.locale,
-      theme: AppPalette.theme(
-        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
-      ),
-      home: const ShopEntryScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-
-}
-
 class MyhanoutApp extends StatelessWidget {
     final String shopKey;
     final String businessName;
@@ -132,26 +92,47 @@ class MyhanoutApp extends StatelessWidget {
   }
 }
 
-/// Admin entry: full app with admin tools (named "myhanoutadmin").
+/// Admin / first-run entry: full app with admin tools (named "myhanoutadmin").
+class ShopEntryApp extends StatelessWidget {
+  const ShopEntryApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShopEntryLocalizedApp();
+  }
+}
+
+class _ShopEntryLocalizedApp extends StatelessWidget {
+  const _ShopEntryLocalizedApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'myhanout',
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      theme: AppPalette.theme(
+        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
+      ),
+      home: const ShopEntryScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+/// Admin setup screen: the full app (all tools) in one flavor.
 class AdminSetupApp extends StatelessWidget {
   const AdminSetupApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return EasyLocalization(
-      supportedLocales: supportedLocales,
-      path: 'assets/lang',
-      fallbackLocale: const Locale('en'),
-      startLocale: const Locale('fr'),
-      useOnlyLangCode: true,
-      saveLocale: true,
-      child: const _AdminLocalizedApp(),
-    );
+    return _AdminLocalizedApp();
   }
 }
 
 class _AdminLocalizedApp extends StatelessWidget {
-  const _AdminLocalizedApp({super.key});
+  const _AdminLocalizedApp();
 
   @override
   Widget build(BuildContext context) {
@@ -169,44 +150,12 @@ class _AdminLocalizedApp extends StatelessWidget {
   }
 }
 
-class ShopHost extends StatelessWidget {
-  const ShopHost({super.key});
+class ShopHostApp extends StatelessWidget {
+  const ShopHostApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: appShopKeyNotifier,
-      builder: (context, shopKey, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: appBusinessNameNotifier,
-          builder: (context, businessName, _) {
-            return MyhanoutApp(key: ValueKey(shopKey), shopKey: shopKey, businessName: businessName);
-          },
-        );
-      },
-    );
-  }
-}
-
-class EndUserHost extends StatelessWidget {
-  const EndUserHost({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: appShopKeyNotifier,
-      builder: (context, shopKey, _) {
-        if (shopKey.isEmpty) {
-          return ShopEntryApp();
-        }
-        return ValueListenableBuilder<String>(
-          valueListenable: appBusinessNameNotifier,
-          builder: (context, businessName, _) {
-            return MyhanoutApp(key: ValueKey(shopKey), shopKey: shopKey, businessName: businessName);
-          },
-        );
-      },
-    );
+    return const MyhanoutApp(shopKey: 'default', businessName: 'Maison du Marché');
   }
 }
 
@@ -276,7 +225,7 @@ class _HomePageState extends State<HomePage> {
 
   void _showSettings() {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => SettingsScreen(shopKey: 'default')),
+      MaterialPageRoute(builder: (_) => SettingsScreen(shopKey: context.watch<AppState>().shopKey)),
     );
   }
 
@@ -292,7 +241,7 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('myhanout'),
+        title: Text('appName'.tr()),
         actions: [
           IconButton(
             icon: const Icon(Icons.language),
@@ -306,30 +255,32 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Column(
+      body: IndexedStack(
+        index: _tab,
         children: [
-          Flexible(
-            child: _tab == 0
-                ? const CheckoutBody()
-                : _tab == 1
-                    ? const InventoryBody()
-                    : const SalesHistoryScreen(),
+          const CheckoutBody(),
+          const InventoryBody(),
+          Consumer<AppState>(
+            builder: (_context, appState, __) => SalesHistoryScreen(shopKey: appState.shopKey),
           ),
         ],
       ),
-      floatingActionButton: _tab == 0
-          ? FloatingActionButton(
-              onPressed: () => scanToAdd(context),
-              tooltip: 'scanToAdd'.tr(),
-              child: const Icon(Icons.qr_code_scanner),
-            )
-          : _tab == 1
-              ? FloatingActionButton(
-                  onPressed: () => showProductForm(context),
-                  tooltip: 'addProduct'.tr(),
-                  child: const Icon(Icons.add),
-                )
-              : null,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _tab == 0
+            ? FloatingActionButton(
+                onPressed: () => scanToAdd(context),
+                tooltip: 'scanToAdd'.tr(),
+                child: const Icon(Icons.qr_code_scanner),
+              )
+            : _tab == 1
+                ? FloatingActionButton(
+                    onPressed: () => showProductForm(context),
+                    tooltip: 'addProduct'.tr(),
+                    child: const Icon(Icons.add),
+                  )
+                : null,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
