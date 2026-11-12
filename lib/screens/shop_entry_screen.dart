@@ -107,6 +107,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
       }
       await Config.setCurrentShopKey(code);
       await Config.saveBusinessName(name);
+      if (!mounted) return;
       context.read<AppState>().shopKey = code;
       context.read<AppState>().businessName = name;
     } on SyncAuthException {

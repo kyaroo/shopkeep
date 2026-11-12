@@ -98,7 +98,15 @@ class ShopEntryApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ShopEntryLocalizedApp();
+    return EasyLocalization(
+      supportedLocales: supportedLocales,
+      path: 'assets/lang',
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('fr'),
+      useOnlyLangCode: true,
+      saveLocale: true,
+      child: const _ShopEntryLocalizedApp(),
+    );
   }
 }
 
@@ -127,7 +135,15 @@ class AdminSetupApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AdminLocalizedApp();
+    return EasyLocalization(
+      supportedLocales: supportedLocales,
+      path: 'assets/lang',
+      fallbackLocale: const Locale('en'),
+      startLocale: const Locale('fr'),
+      useOnlyLangCode: true,
+      saveLocale: true,
+      child: const _AdminLocalizedApp(),
+    );
   }
 }
 

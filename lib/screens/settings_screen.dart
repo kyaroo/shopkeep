@@ -110,6 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _useShop(String key) async {
+    final appState = context.read<AppState>();
     await Config.setCurrentShopKey(key);
     final name = await Config.getBusinessName();
     if (mounted) {
@@ -118,8 +119,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       Navigator.of(context).pop();
     }
-    context.read<AppState>().shopKey = key;
-    context.read<AppState>().businessName = name;
+    appState.shopKey = key;
+    appState.businessName = name;
   }
 
   Future<void> _confirmDeleteShop(String key) async {
