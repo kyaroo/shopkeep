@@ -84,7 +84,7 @@ build `flutter build apk --target-platform android-arm64 --flavor admin --debug`
 | — | Pousser les commits sur `origin/main` | — | ✅ `e0da8d8` (historique purgé des APK) |
 | **BUG C** | Borner la taille des photos dans le delta (≤ 50 Ko, refus explicite) | 1 h (S) | ✅ `d34a22a` → poussé |
 | B4 | QR v2 : TTL par shop (`ttl_seconds` dans le token) | 4 h (M) | ✅ `f960303` → poussé |
-| CAT3b | Flag produits ajoutés localement (récupération facile) | 3 h (M) | ← prochain |
+| CAT3b | Flag produits ajoutés localement (récupération facile) | 3 h (M) | ✅ `f93e4d5` → poussé (backend seul, pas d'UI) |
 | FIX-TESTS | ~~2 échecs préexistants~~ — **invalide, 83/83 passent** | — | ❌ retiré |
 
 Note push : les 4 APK de 207 Mo ont été purgés de l'historique
