@@ -39,11 +39,12 @@ final entries = [
 
 Future<void> main() async {
   // ---- 1. admin side: build ----
-  final payload = CatalogPushBuilder.buildPayload(
+  final result = CatalogPushBuilder.buildPayload(
     localVersion: base,
     shopVersion: base,
     entries: entries,
   );
+  final payload = result.json;
   final map = jsonDecode(payload) as Map<String, dynamic>;
   print('built: base=${map['base_version']} target=${map['target_version']} '
       'upserts=${(map['upserts'] as List).length}');

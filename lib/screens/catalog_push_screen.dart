@@ -113,7 +113,7 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
     try {
       final local = await _localVersion();
       final target = base + 1;
-      final delta = CatalogPushBuilder.buildPayload(
+      final result = CatalogPushBuilder.buildPayload(
         localVersion: local,
         shopVersion: base,
         entries: _entries,
@@ -122,7 +122,7 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
       final dir = Directory.systemTemp.createTempSync('myhanout_push_');
       final file = File(
           '${dir.path}/${CatalogPushBuilder.fileName(shop.shopKey, target)}');
-      await file.writeAsString(delta, flush: true);
+      await file.writeAsString(result.json, flush: true);
 
       if (!mounted) return;
       setState(() => _building = false);
@@ -130,11 +130,22 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
         true,
         'catalogPushBuilt'.tr(namedArgs: {
           'key': shop.shopKey,
-          'count': '${_entries.length}',
+          'count': '${result.upserts}',
           'size': (file.lengthSync() / 1024).toStringAsFixed(1),
           'version': '$target',
         }),
       );
+      if (!result.photosUntouched) {
+        // The budget acted: say so rather than silently shipping smaller
+        // photos. Name/category always survive.
+        _snack(
+          false,
+          'catalogPushPhotosAdjusted'.tr(namedArgs: {
+            'trimmed': '${result.photosTrimmed}',
+            'dropped': '${result.photosDropped}',
+          }),
+        );
+      }
 
 
       // The file is delivered by hand (WhatsApp / share sheet). The version is

@@ -16,10 +16,13 @@ class CatalogPushBuilder {
   static String fileName(String shopKey, int target) =>
       'catalog_${shopKey}_v$target.myhanout';
 
-  /// Builds the signed delta text. Throws [CatalogBaseMismatchException] when
+  /// Builds the signed delta. Throws [CatalogBaseMismatchException] when
   /// [localVersion] is not [shopVersion], or when the shop never reported a
   /// generation (0).
-  static String buildPayload({
+  ///
+  /// Returns the [DeltaBuildResult] so the caller can report what the photo
+  /// budget did; the file contents are `result.json`.
+  static DeltaBuildResult buildPayload({
     required int localVersion,
     required int shopVersion,
     required List<CatalogEntry> entries,

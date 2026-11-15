@@ -116,5 +116,6 @@
   "catalogPushConfirmBody": "Confirmez que le fichier {file} a bien été remis à la boutique « {key} ». Le serveur passera alors la boutique en version {version}.",
   "catalogPushConfirm": "Remis",
   "catalogPushFailed": "Échec : {error}",
-  "catalogVersionLabel": "Version du catalogue"
+  "catalogVersionLabel": "Version du catalogue",
+  "catalogPushPhotosAdjusted": "Photos ajustées : {trimmed} redimensionnée(s), {dropped} abandonnée(s) (trop lourde). Nom et catégorie conservés."
 }

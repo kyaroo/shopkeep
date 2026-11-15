@@ -116,5 +116,6 @@
   "catalogPushConfirmBody": "أكّد أن الملف {file} سُلّم إلى المتجر « {key} ». سيمرّ الخادم عندها المتجر إلى النسخة {version}.",
   "catalogPushConfirm": "تم التسليم",
   "catalogPushFailed": "فشل: {error}",
-  "catalogVersionLabel": "نسخة الدليل"
+  "catalogVersionLabel": "نسخة الدليل",
+  "catalogPushPhotosAdjusted": "الصور المعدّلة: {trimmed} أُعيد تحجيمها، {dropped} أُسقطت (ثقيلة جدًا). الاسم والتصنيف محفوظان."
 }

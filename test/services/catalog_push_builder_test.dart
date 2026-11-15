@@ -62,19 +62,21 @@ void main() {
 
     test('builds a signed delta with base=shop version and target=base+1',
         () {
-      final payload = CatalogPushBuilder.buildPayload(
+      final result = CatalogPushBuilder.buildPayload(
         localVersion: 4,
         shopVersion: 4,
         entries: [_entry('6111000000123')],
       );
 
-      final map = jsonDecode(payload) as Map<String, dynamic>;
+      final map = jsonDecode(result.json) as Map<String, dynamic>;
       expect(map['base_version'], 4);
       expect(map['target_version'], 5);
       expect(map['signature'], isA<String>());
+      expect(result.upserts, 1);
+      expect(result.photosUntouched, isTrue);
 
       // The payload must verify against the same secret the receiver uses.
-      final verification = CatalogDelta.verify(payload);
+      final verification = CatalogDelta.verify(result.json);
       expect(verification.ok, isTrue, reason: verification.error);
       expect(verification.delta!.baseVersion, 4);
       expect(verification.delta!.targetVersion, 5);
