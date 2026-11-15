@@ -37,6 +37,7 @@ class InventoryBody extends StatefulWidget {
 
 class _InventoryBodyState extends State<InventoryBody> {
   final TextEditingController _search = TextEditingController();
+  final ScrollController _scroll = ScrollController();
   bool _lowStockOnly = false;
 
   @override
@@ -46,6 +47,13 @@ class _InventoryBodyState extends State<InventoryBody> {
       Provider.of<CartProvider>(context, listen: false)
           .loadProducts(search: _search.text.trim());
     });
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _confirmDelete(Product p) async {
@@ -83,6 +91,16 @@ class _InventoryBodyState extends State<InventoryBody> {
     final products = _lowStockOnly
         ? allProducts.where((p) => p.isLowStock).toList()
         : allProducts;
+    // Paged: the list renders what is loaded; scrolling near the end fetches
+    // the next page. The summary reports the real total. Deferred to after the
+    // frame — notifying listeners during build would throw.
+    if (_scroll.hasClients &&
+        _scroll.position.pixels >=
+            _scroll.position.maxScrollExtent - 200) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) cart.loadMoreProducts();
+      });
+    }
     return Column(
       children: [
         Padding(
@@ -153,7 +171,7 @@ class _InventoryBodyState extends State<InventoryBody> {
               alignment: AlignmentDirectional.centerStart,
               child: Text(
                 'inventorySummary'.tr(namedArgs: {
-                  'count': '${allProducts.length}',
+                  'count': '${cart.totalProducts}',
                   'low': '${allProducts.where((p) => p.isLowStock).length}',
                 }),
                 style: Theme.of(context)
@@ -198,9 +216,18 @@ Icon(
                       ),
                     )
                   : ListView.separated(
-                      itemCount: products.length,
+                      controller: _scroll,
+                      itemCount:
+                          products.length + (cart.loadingMoreProducts ? 1 : 0),
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (_, i) {
+                        if (i >= products.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child:
+                                Center(child: CircularProgressIndicator()),
+                          );
+                        }
                         final p = products[i];
 return ListTile(
   leading: p.photo != null
@@ -342,11 +369,11 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (code == null || !mounted) return;
     setState(() => _barcode.text = code);
 
-    final inInventory =
-        Provider.of<CartProvider>(context, listen: false).products.any(
-      (p) => p.barcode == code,
-    );
-    if (inInventory) return;
+    // Database-backed: the inventory list is paged, so the in-memory list is
+    // only the loaded window.
+    final existing = await Provider.of<CartProvider>(context, listen: false)
+        .findByBarcode(code);
+    if (existing != null) return;
 
     setState(() => _lookingUp = true);
     // Local catalog first (zero data).

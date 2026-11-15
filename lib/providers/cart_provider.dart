@@ -11,8 +11,14 @@ class CartProvider with ChangeNotifier {
   final Cart _cart = Cart();
   List<Product> _products = [];
   bool _productsLoading = false;
+  bool _loadingMoreProducts = false;
+  int _totalProducts = 0;
   String _lastSearch = '';
   String _businessName = 'Maison du Marché';
+
+  /// Rows per inventory page. The shop's own listing is normally small, but a
+  /// large import must not load unbounded into memory.
+  static const int productsPageSize = 50;
 
   List<CartLine> get lines => _cart.lines;
   int get totalCents => _cart.totalCents;
@@ -20,6 +26,11 @@ class CartProvider with ChangeNotifier {
   bool get isEmpty => _cart.isEmpty;
   List<Product> get products => _products;
   bool get productsLoading => _productsLoading;
+  bool get loadingMoreProducts => _loadingMoreProducts;
+
+  /// Total rows for the current search, not just the loaded page.
+  int get totalProducts => _totalProducts;
+  bool get hasMoreProducts => _products.length < _totalProducts;
   String get businessName => _businessName;
 
   CartProvider(this.shopKey, {String? businessName})
@@ -27,13 +38,37 @@ class CartProvider with ChangeNotifier {
     loadProducts();
   }
 
-  Future<void> loadProducts({String? search}) async {
+  /// Loads the first page (or the whole list when [all] is set).
+  Future<void> loadProducts({String? search, bool all = false}) async {
     _lastSearch = search ?? _lastSearch;
     _productsLoading = true;
     notifyListeners();
     final db = await Db.open(shopKey);
-    _products = await db.getProducts(shopKey, search: search);
+    _totalProducts = await db.countProducts(shopKey, search: _lastSearch);
+    _products = await db.getProducts(
+      shopKey,
+      search: _lastSearch,
+      limit: all ? null : productsPageSize,
+    );
     _productsLoading = false;
+    notifyListeners();
+  }
+
+  /// Appends the next page. No-op while a page is in flight or when the list
+  /// is already complete.
+  Future<void> loadMoreProducts() async {
+    if (_loadingMoreProducts || !hasMoreProducts) return;
+    _loadingMoreProducts = true;
+    notifyListeners();
+    final db = await Db.open(shopKey);
+    final page = await db.getProducts(
+      shopKey,
+      search: _lastSearch,
+      limit: productsPageSize,
+      offset: _products.length,
+    );
+    _products = [..._products, ...page];
+    _loadingMoreProducts = false;
     notifyListeners();
   }
 

@@ -258,18 +258,38 @@ class Db {
 
   // ---- Products ----
 
-  Future<List<Product>> getProducts(String shopKey, {String? search}) async {
+  Future<List<Product>> getProducts(String shopKey,
+      {String? search, int? limit, int? offset}) async {
     final db = await _db;
     final where = search != null && search.isNotEmpty
         ? "WHERE name LIKE ? OR barcode LIKE ?"
         : null;
     final args = search != null && search.isNotEmpty
         ? ['%$search%', '%$search%']
-        : null;
+        : <Object?>[];
     final rows = await db!.rawQuery(
-        'SELECT * FROM products ${where ?? ''} ORDER BY name COLLATE NOCASE',
-        args);
+        'SELECT * FROM products ${where ?? ''} ORDER BY name COLLATE NOCASE'
+        '${limit != null ? ' LIMIT ?' : ''}'
+        '${limit != null && offset != null ? ' OFFSET ?' : ''}',
+        limit != null && offset != null
+            ? [...args, limit, offset]
+            : [...args, if (limit != null) limit]);
     return rows.map(Product.fromMap).toList();
+  }
+
+  /// Total rows matching [search] — lets the UI show a real count while only
+  /// loading a page at a time.
+  Future<int> countProducts(String shopKey, {String? search}) async {
+    final db = await _db;
+    final where = search != null && search.isNotEmpty
+        ? "WHERE name LIKE ? OR barcode LIKE ?"
+        : null;
+    final args = search != null && search.isNotEmpty
+        ? ['%$search%', '%$search%']
+        : <Object?>[];
+    final rows = await db!.rawQuery(
+        'SELECT COUNT(*) AS c FROM products ${where ?? ''}', args);
+    return (rows.first['c'] as int?) ?? 0;
   }
 
   Future<Product?> getByBarcode(String shopKey, String barcode) async {
