@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/catalog_entry.dart';
+import '../models/catalog_prefill.dart';
 import '../providers/catalog_provider.dart';
 import '../data/photo_processor.dart';
 import '../data/translation_service.dart';
@@ -19,9 +20,9 @@ import 'package:provider/provider.dart';
 class CaptureDialog extends StatefulWidget {
   final String barcode;
   final CatalogEntry? existing;
-  /// Prefill from a server catalog hit (scan-resolve). Used when there's no
-  /// local `existing` entry. Keys: name, name_ar, name_en, category.
-  final Map<String, dynamic>? prefill;
+  /// Prefill from a catalog hit (scan resolve or browse row). Used when there's
+  /// no local `existing` entry.
+  final CatalogPrefill? prefill;
   const CaptureDialog(
       {super.key, required this.barcode, this.existing, this.prefill});
 
@@ -46,16 +47,16 @@ class _CaptureDialogState extends State<CaptureDialog> {
     final e = widget.existing;
     // Prefer an existing local entry; else seed from a server prefill.
     final p = widget.prefill;
-    final name = e?.name ?? (p?['name'] as String?) ?? '';
-    final nameAr = e?.nameAr ?? (p?['name_ar'] as String?) ?? '';
-    final nameEn = e?.nameEn ?? (p?['name_en'] as String?) ?? '';
-    final category = e?.category ?? (p?['category'] as String?) ?? '';
+    final name = e?.name ?? p?.name ?? '';
+    final nameAr = e?.nameAr ?? p?.nameAr ?? '';
+    final nameEn = e?.nameEn ?? p?.nameEn ?? '';
+    final category = e?.category ?? p?.category ?? '';
     _name = TextEditingController(text: name);
     _nameAr = TextEditingController(text: nameAr);
     // English defaults to French (they're normally identical).
     _nameEn = TextEditingController(text: nameEn.isNotEmpty ? nameEn : name);
     _category = TextEditingController(text: category);
-    _photo = e?.photo;
+    _photo = e?.photo ?? p?.photo;
   }
 
   @override

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/sync_service.dart';
 import '../providers/catalog_provider.dart';
 import '../models/catalog_entry.dart';
+import '../models/catalog_prefill.dart';
 import 'catalog_scan_page.dart';
 import 'capture_dialog.dart';
 import 'sync_settings_dialog.dart';
@@ -49,9 +50,9 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
     }
     // 2) Not local — try the server catalog (OFF-derived). Show a spinner
     //    while resolving so the owner sees progress; prefill on hit.
-    Map<String, dynamic>? prefill;
+    CatalogPrefill? prefill;
     if (mounted) {
-      prefill = await showDialog<Map<String, dynamic>>(
+      prefill = await showDialog<CatalogPrefill>(
         context: context,
         barrierDismissible: false,
         builder: (_) => _ResolveDialog(
@@ -258,12 +259,12 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
 /// catalog. Resolves the [future] once and pops with its result (the prefill
 /// map, or null on miss/offline) so the capture form opens immediately after.
 class _ResolveDialog extends StatelessWidget {
-  final Future<Map<String, dynamic>?> future;
+  final Future<CatalogPrefill?> future;
   const _ResolveDialog({required this.future});
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>?>(
+    return FutureBuilder<CatalogPrefill?>(
       future: future,
       builder: (context, snap) {
         // Pop as soon as the future settles (data or null). Defer the pop to

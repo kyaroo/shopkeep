@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/catalog_prefill.dart';
 import '../providers/catalog_provider.dart';
 import '../theme.dart';
 import 'capture_dialog.dart';
@@ -12,7 +13,7 @@ import 'capture_dialog.dart';
 /// when the server is unreachable (shows an error, no crash).
 class BrowsePage extends StatefulWidget {
   final bool localOnly;
-  final void Function(Map<String, dynamic>)? onSelect;
+  final void Function(CatalogPrefill)? onSelect;
   const BrowsePage({super.key, this.localOnly = false, this.onSelect});
 
   @override
@@ -185,18 +186,17 @@ class _BrowsePageState extends State<BrowsePage> {
                                         child: CircularProgressIndicator()),
                                   );
                                 }
-                                final p =
-                                    _products[i] as Map<String, dynamic>;
-                                final name =
-                                    (p['name'] as String?) ?? '';
-                                final brand = p['brand'] as String?;
-                                final cat = p['category'] as String?;
-                                final origin = p['origin'] as String?;
-                                final isOwner = origin == 'owner';
+                                final p = _products[i];
+                                final name = p.name;
+                                final brand = p.brand;
+                                final cat = p.category;
+                                final isOwner = p.origin == 'owner';
                                 return ListTile(
                                   leading: _Thumb(
-                                    url: p['image_url'] as String?,
-                                    photoBase64: p['photo_base64'] as String?,
+                                    url: p.imageUrl,
+                                    photoBase64: p.photo == null
+                                        ? null
+                                        : base64Encode(p.photo!),
                                   ),
                                   title: Text(name.isEmpty ? '(no name)' : name),
                                   subtitle: Text([

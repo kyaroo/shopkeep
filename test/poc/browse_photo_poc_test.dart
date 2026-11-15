@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:myhanout/models/catalog_prefill.dart';
 import 'package:myhanout/providers/catalog_provider.dart';
 import 'package:myhanout/screens/browse_page.dart';
 
@@ -32,23 +33,20 @@ void main() {
           limit: any(named: 'limit'),
           offset: any(named: 'offset'),
         )).thenAnswer(
-      (_) async => {
-        'total': 1,
-        'limit': 50,
-        'offset': 0,
-        'products': [
-          {
-            'barcode': '6111035001673',
-            'name': 'Aïn Atlas 50cl',
-            'name_ar': null,
-            'name_en': null,
-            'category': 'beverage',
-            'origin': 'local',
-            'image_url': null,
-            'photo_base64': base64Encode(photo),
-          },
+      (_) async => CatalogBrowseResult(
+        total: 1,
+        limit: 50,
+        offset: 0,
+        products: [
+          CatalogPrefill(
+            barcode: '6111035001673',
+            name: 'Aïn Atlas 50cl',
+            category: 'beverage',
+            origin: 'local',
+            photo: photo,
+          ),
         ],
-      },
+      ),
     );
 
     await tester.pumpWidget(
