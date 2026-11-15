@@ -22,6 +22,11 @@ import '../models/sale.dart';
 class Db {
   Db._(this._file, this._db);
 
+  /// Single source of truth for the schema version. Both open paths must use it:
+  /// `Db.open` eagerly opens the database, so a stale duplicate value here (or in
+  /// the lazy getter) silently skips every migration added afterwards.
+  static const int dbVersion = 7;
+
   final File _file;
 
   Database? _db;
@@ -30,7 +35,7 @@ class Db {
     if (_db != null) return _db!;
     _db = await openDatabase(
       _file.path,
-      version: 4,
+      version: dbVersion,
       onConfigure: (_) async => await enableWals(),
       onCreate: _createAll,
       onUpgrade: _upgrade,
@@ -61,7 +66,7 @@ class Db {
     }
     final db = await openDatabase(
       file.path,
-      version: 6,
+      version: dbVersion,
       onConfigure: (_) async => await enableWals(),
       onCreate: _createAll,
       onUpgrade: _upgrade,
@@ -79,8 +84,10 @@ class Db {
       File(await shopDbPath(shopKey));
 
   static Future<void> closeShop(String shopKey) async {
-    _expire(shopKey);
-    final handle = _openHandles[shopKey];
+    // Remove the handle FIRST: `_expire` alone leaves it in the map, so this
+    // used to be a no-op and the next open() returned a stale instance
+    // pointing at a deleted file.
+    final handle = _openHandles.remove(shopKey);
     if (handle != null) {
       await handle._db?.close();
       await handle._file.delete();
@@ -106,7 +113,8 @@ class Db {
         stock_qty INTEGER NOT NULL DEFAULT 0,
         low_stock_threshold INTEGER NOT NULL DEFAULT 5,
         photo BLOB,
-        photo_source TEXT NOT NULL DEFAULT 'catalog'
+        photo_source TEXT NOT NULL DEFAULT 'catalog',
+        source TEXT NOT NULL DEFAULT 'catalog'
       )
     ''');
     await db.execute(
@@ -153,15 +161,35 @@ class Db {
         'CREATE INDEX idx_audit_log_changed_at ON audit_log(changed_at DESC)');
   }
 
+  /// Adds a column, ignoring "duplicate column" so a version bump can re-run
+  /// a branch on a database that already has it.
+  static Future<void> _addColumn(
+      Database db, String table, String column, String definition) async {
+    try {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+    } catch (_) {
+      // Already present — nothing to do.
+    }
+  }
+
   static Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    // Additive only. Each ALTER is idempotent (duplicate-column errors are
+    // swallowed) so bumping the declared version is safe even for a database
+    // that already carries the column via onCreate.
+    if (oldVersion < 7) {
+      // v7: provenance of the PRODUCT (resolved from the catalog vs typed by
+      // hand). Kept separate from photo_source, which tracks the photo.
+      await _addColumn(db, 'products', 'source',
+          "TEXT NOT NULL DEFAULT 'catalog'");
+    }
     if (oldVersion < 6) {
       // v6: provenance of the cached photo (catalog vs locally captured).
-      await db.execute(
-          "ALTER TABLE products ADD COLUMN photo_source TEXT NOT NULL DEFAULT 'catalog'");
+      await _addColumn(db, 'products', 'photo_source',
+          "TEXT NOT NULL DEFAULT 'catalog'");
     }
     if (oldVersion < 5) {
       // v5: catalog photo on the shop's own products.
-      await db.execute('ALTER TABLE products ADD COLUMN photo BLOB');
+      await _addColumn(db, 'products', 'photo', 'BLOB');
     }
     if (oldVersion < 4) {
       if (oldVersion < 3) {

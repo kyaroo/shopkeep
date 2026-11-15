@@ -281,6 +281,11 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   bool _saving = false;
   bool _lookingUp = false;
   bool _lookedUp = false;
+
+  /// True only when the barcode was resolved from the LOCAL catalog. Distinguishes
+  /// a catalog product from one typed by hand (CAT3b) — the admin's OFF lookup
+  /// sets [_lookedUp] but not this, because it is not our catalog.
+  bool _fromCatalog = false;
   Uint8List? _photo;
 
   @override
@@ -320,6 +325,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           if (_name.text.trim().isEmpty) _name.text = entry.name;
           _photo = entry.photo;
           _lookedUp = true;
+          _fromCatalog = true;
         });
         return true;
       }
@@ -364,14 +370,19 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+    final barcode = _barcode.text.trim();
     final p = Product(
       id: widget.existing?.id,
       name: _name.text.trim(),
-      barcode: _barcode.text.trim().isEmpty ? null : _barcode.text.trim(),
+      barcode: barcode.isEmpty ? null : barcode,
       priceCents: parseDirhamsToCents(_price.text.trim()),
       stockQty: int.tryParse(_stock.text.trim()) ?? 0,
       lowStockThreshold: int.tryParse(_threshold.text.trim()) ?? 5,
       photo: _photo,
+      // Editing keeps the row's provenance; a new row is 'catalog' only when
+      // the barcode was resolved locally, otherwise it is a local addition.
+      source: widget.existing?.source ??
+          ((_fromCatalog && barcode.isNotEmpty) ? 'catalog' : 'local'),
     );
     await Provider.of<CartProvider>(context, listen: false).saveProduct(p);
     if (mounted) Navigator.pop(context, p);

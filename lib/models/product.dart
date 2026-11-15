@@ -16,6 +16,11 @@ class Product {
   /// shopkeeper captured it). A catalog refresh only fills rows with no photo.
   final String photoSource;
 
+  /// Provenance of the PRODUCT itself: 'catalog' when the barcode was resolved
+  /// from the local catalog, 'local' when the shopkeeper typed it by hand.
+  /// Separate from [photoSource], which only tracks the photo.
+  final String source;
+
   Product({
     this.id,
     required this.name,
@@ -25,9 +30,12 @@ class Product {
     this.lowStockThreshold = 5,
     this.photo,
     this.photoSource = 'catalog',
+    this.source = 'catalog',
   });
 
   double get price => priceCents / 100.0;
+
+  bool get isLocal => source == 'local';
 
   Map<String, Object?> toMap() => {
         'id': id,
@@ -38,6 +46,7 @@ class Product {
         'low_stock_threshold': lowStockThreshold,
         'photo': photo,
         'photo_source': photoSource,
+        'source': source,
       };
 
   factory Product.fromMap(Map<String, Object?> m) => Product(
@@ -49,6 +58,7 @@ class Product {
         lowStockThreshold: (m['low_stock_threshold'] as int?) ?? 5,
         photo: m['photo'] as Uint8List?,
         photoSource: (m['photo_source'] as String?) ?? 'catalog',
+        source: (m['source'] as String?) ?? 'catalog',
       );
 
   Product copyWith({
@@ -60,6 +70,7 @@ class Product {
     int? lowStockThreshold,
     Uint8List? photo,
     String? photoSource,
+    String? source,
   }) =>
       Product(
         id: id ?? this.id,
@@ -70,6 +81,7 @@ class Product {
         lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
         photo: photo ?? this.photo,
         photoSource: photoSource ?? this.photoSource,
+        source: source ?? this.source,
       );
 
   /// At or below the per-product threshold (includes out of stock).
