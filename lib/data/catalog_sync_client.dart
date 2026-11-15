@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/catalog_entry.dart';
+import '../models/catalog_row.dart';
 import '../data/sync_config.dart';
 
 /// Result of a push sync against the catalog server.
@@ -256,10 +257,10 @@ class CatalogSyncClient {
   }
 
   /// Resolves a barcode against the server catalog (read API). Returns the
-  /// canonical fields on hit, or null on 404. Throws SyncException/SyncAuth
+  /// canonical row on hit, or null on 404. Throws SyncException/SyncAuth
   /// on server/auth error so the caller can fall back to manual entry.
   /// Read-only — works even when the server's write gate is closed.
-  Future<Map<String, dynamic>?> resolve(String barcode) async {
+  Future<CatalogRow?> resolve(String barcode) async {
     final resp = await _client
         .get(
           Uri.parse('$baseUrl/v1/products/${Uri.encodeComponent(barcode)}'),
@@ -273,13 +274,13 @@ class CatalogSyncClient {
     if (resp.statusCode != 200) {
       throw SyncException('resolve ${resp.statusCode}: ${resp.body}');
     }
-    return jsonDecode(resp.body) as Map<String, dynamic>;
+    return CatalogRow.fromMap(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
   /// Browses/searches the server catalog. `q` matches name/brand (empty =
   /// browse all, paginated); `category` filters by slug. Returns
   /// {total, limit, offset, products:[...]}. Read-only, ungated.
-  Future<Map<String, dynamic>> search({
+  Future<CatalogSearchResult> search({
     String q = '',
     String? category,
     int limit = 50,
@@ -301,7 +302,8 @@ class CatalogSyncClient {
     if (resp.statusCode != 200) {
       throw SyncException('search ${resp.statusCode}: ${resp.body}');
     }
-    return jsonDecode(resp.body) as Map<String, dynamic>;
+    return CatalogSearchResult.fromMap(
+        jsonDecode(resp.body) as Map<String, dynamic>);
   }
 }
 

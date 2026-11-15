@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/catalog_entry.dart';
+import '../models/catalog_prefill.dart';
 import '../data/catalog_db.dart';
 import '../data/sync_config.dart';
 import '../data/sync_service.dart';
@@ -58,12 +60,12 @@ class CatalogProvider with ChangeNotifier {
 
   /// Resolves a barcode against the server catalog, caches the result locally
   /// (so a later scan of the same barcode works offline), and returns the
-  /// canonical fields for prefilling the capture form. Returns null on miss
-  /// or any network/config error — the Mapper still works fully offline.
+  /// prefill for the capture form. Returns null on miss or any
+  /// network/config error — the Mapper still works fully offline.
   ///
   /// This does NOT create an owner entry; it only seeds a local cache row and
   /// a prefill. The owner still taps Save to author it (origin=owner).
-  Future<Map<String, dynamic>?> resolveFromServer(String barcode) async {
+  Future<CatalogPrefill?> resolveFromServer(String barcode) async {
     final config = _sync.syncConfig ?? await SyncConfig.load();
     if (!config.isConfigured) return null;
     final client = config.client();
@@ -78,27 +80,28 @@ class CatalogProvider with ChangeNotifier {
       final now = DateTime.now().millisecondsSinceEpoch;
       final cached = CatalogEntry(
         barcode: barcode,
-        name: (row['name'] as String?)?.trim() ?? '',
-        nameAr: _strOrNull(row['name_ar']),
-        nameEn: _strOrNull(row['name_en']),
-        category: _strOrNull(row['category']),
+        name: row.name?.trim() ?? '',
+        nameAr: _strOrNull(row.nameAr),
+        nameEn: _strOrNull(row.nameEn),
+        category: _strOrNull(row.category),
         createdAt: now,
-        updatedAt: (row['updated_at'] as num?)?.toInt() ?? now,
+        updatedAt: row.updatedAt,
       );
       if (cached.name.isNotEmpty) {
         await _repo.upsert(cached);
         await load();
       }
-      return {
-        'name': cached.name,
-        'name_ar': cached.nameAr,
-        'name_en': cached.nameEn,
-        'category': cached.category,
-        'brand': row['brand'],
-        'quantity_text': row['quantity_text'],
-        'image_url': row['image_url'],
-        'origin': row['origin'],
-      };
+      return CatalogPrefill(
+        barcode: barcode,
+        name: cached.name,
+        nameAr: cached.nameAr,
+        nameEn: cached.nameEn,
+        category: cached.category,
+        brand: row.brand,
+        quantityText: row.quantityText,
+        imageUrl: row.imageUrl,
+        origin: row.origin,
+      );
     } on Exception {
       // Network down / auth / server error — stay offline, no crash.
       return null;
@@ -110,11 +113,10 @@ class CatalogProvider with ChangeNotifier {
     return null;
   }
 
-  /// Browses/searches the server catalog. Returns the raw result map
-  /// {total, limit, offset, products:[...]} or null on any error/offline.
-  /// Additive — does not touch local entries; the browse screen renders the
-  /// server result directly.
-  Future<Map<String, dynamic>?> browseServer({
+  /// Browses/searches the server catalog. Returns one typed page, or null on
+  /// any error/offline. Additive — does not touch local entries; the browse
+  /// screen renders the result directly.
+  Future<CatalogBrowseResult?> browseServer({
     String q = '',
     String? category,
     int limit = 50,
@@ -131,7 +133,24 @@ class CatalogProvider with ChangeNotifier {
         offset: offset,
       );
       client.close();
-      return result;
+      return CatalogBrowseResult(
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset,
+        products: result.products
+            .map((r) => CatalogPrefill(
+                  barcode: r.barcode,
+                  name: r.name ?? '',
+                  nameAr: r.nameAr,
+                  nameEn: r.nameEn,
+                  category: r.category,
+                  brand: r.brand,
+                  quantityText: r.quantityText,
+                  imageUrl: r.imageUrl,
+                  origin: r.origin,
+                ))
+            .toList(),
+      );
     } on Exception {
       return null;
     }
@@ -146,7 +165,7 @@ class CatalogProvider with ChangeNotifier {
     String? nameAr,
     String? nameEn,
     String? category,
-    dynamic photo,
+    Uint8List? photo,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final existing = await _repo.get(barcode);
@@ -182,9 +201,9 @@ class CatalogProvider with ChangeNotifier {
     return c != null && c.isConfigured;
   }
 
-  /// Read-only local browse (no network). Returns the same shape as
-  /// [browseServer] so BrowsePage can render either source.
-  Future<Map<String, dynamic>?> browseLocal({
+  /// Read-only local browse (no network). Same shape as [browseServer] so
+  /// BrowsePage can render either source.
+  Future<CatalogBrowseResult?> browseLocal({
     String q = '',
     int limit = 50,
     int offset = 0,
@@ -192,26 +211,22 @@ class CatalogProvider with ChangeNotifier {
     await _repo.init();
     final entries = await _repo.all(search: q, limit: limit, offset: offset);
     final total = await _repo.count(search: q);
-    return {
-      'total': total,
-      'limit': limit,
-      'offset': offset,
-      'products': entries
-          .map((e) => {
-                'barcode': e.barcode,
-                'name': e.name,
-                'name_ar': e.nameAr,
-                'name_en': e.nameEn,
-                'category': e.category,
-                'origin': 'local',
-                'image_url': null,
-                // Local catalog photo (already downscaled to <=128px by
-                // processPhoto). Null when the entry has none.
-                'photo_base64':
-                    e.photo == null ? null : base64Encode(e.photo!),
-              })
+    return CatalogBrowseResult(
+      total: total,
+      limit: limit,
+      offset: offset,
+      products: entries
+          .map((e) => CatalogPrefill(
+                barcode: e.barcode,
+                name: e.name,
+                nameAr: e.nameAr,
+                nameEn: e.nameEn,
+                category: e.category,
+                origin: 'local',
+                photo: e.photo,
+              ))
           .toList(),
-    };
+    );
   }
 
   Future<int> count() => _repo.count();

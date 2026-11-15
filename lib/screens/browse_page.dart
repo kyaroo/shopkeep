@@ -24,7 +24,7 @@ class _BrowsePageState extends State<BrowsePage> {
   final _scroll = ScrollController();
   Timer? _debounce;
 
-  List<dynamic> _products = [];
+  List<CatalogPrefill> _products = [];
   int _total = 0;
   int _offset = 0;
   static const _pageSize = 50;
@@ -92,8 +92,8 @@ class _BrowsePageState extends State<BrowsePage> {
     setState(() {
       _loading = false;
       _error = null;
-      _total = (result['total'] as num?)?.toInt() ?? 0;
-      final page = (result['products'] as List?) ?? [];
+      _total = result.total;
+      final page = result.products;
       if (reset) {
         _products = page;
       } else {
@@ -112,18 +112,17 @@ class _BrowsePageState extends State<BrowsePage> {
     setState(() => _loadingMore = false);
   }
 
-  Future<void> _openProduct(dynamic p) async {
-    final map = p as Map<String, dynamic>;
+  Future<void> _openProduct(CatalogPrefill p) async {
     if (widget.onSelect != null) {
-      widget.onSelect!(map);
-      if (mounted) Navigator.of(context).pop(map);
+      widget.onSelect!(p);
+      if (mounted) Navigator.of(context).pop(p);
       return;
     }
     await showDialog(
       context: context,
       builder: (_) => CaptureDialog(
-        barcode: map['barcode'] as String,
-        prefill: map,
+        barcode: p.barcode,
+        prefill: p,
       ),
     );
   }
