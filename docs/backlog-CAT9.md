@@ -79,13 +79,19 @@ build `flutter build apk --target-platform android-arm64 --flavor admin --debug`
 
 | ID | Item | Est. | Statut |
 |---|---|---|---|
-| **CAT9** | Distribution du catalogue (admin) + version côté shopkeeper | **4 h (M)** | ← prochain |
-| A1–A3 | Correctifs serveur (500 liste + recreate + test) | 30 min (S) | prérequis CAT9 |
-| B4 | QR v2 : TTL par shop (`ttl_seconds` dans le token) | 4 h (M) | après CAT9 |
-| CAT3b | Flag produits ajoutés localement (récupération facile) | 3 h (M) | après CAT9 |
-| FIX-TESTS | ~~2 échecs préexistants~~ — **invalide, 75/75 passent** | — | ❌ retiré |
-| BUG C | Borner la taille des photos dans le delta (≤ 50 Ko, refus explicite) | 1 h (S) | à faire avant un push complet |
-| — | Pousser les 49 commits sur `origin/main` | 10 min (S) | quand tu veux |
+| **CAT9** | Distribution du catalogue (admin) + version côté shopkeeper | **4 h (M)** | ✅ `cbc70f3` → poussé |
+| A1–A3 | Correctifs serveur (500 liste + recreate + test) | 30 min (S) | ✅ `abb29c6` (local, pas de remote) |
+| — | Pousser les commits sur `origin/main` | — | ✅ `e0da8d8` (historique purgé des APK) |
+| **BUG C** | Borner la taille des photos dans le delta (≤ 50 Ko, refus explicite) | 1 h (S) | ← prochain (avant un push complet) |
+| B4 | QR v2 : TTL par shop (`ttl_seconds` dans le token) | 4 h (M) | après BUG C |
+| CAT3b | Flag produits ajoutés localement (récupération facile) | 3 h (M) | après B4 |
+| FIX-TESTS | ~~2 échecs préexistants~~ — **invalide, 83/83 passent** | — | ❌ retiré |
+
+Note push : les 4 APK de 207 Mo ont été purgés de l'historique
+(`git filter-branch`, backup `backup/pre-apk-purge` = `704ddc9`).
+`releases/shopkeeper-latest.apk` et `public/latest.apk` restent trackés :
+ce sont des symlinks. `assets/catalog_seed.db` (60 Mo) passe sous la
+limite dure de 100 Mo mais dépasse le seuil recommandé (50 Mo).
 
 ## 4. Dépendances
 CAT9 Phase 1 → Phase 0 (serveur). Phase 2 → Phase 1 (clés i18n).
