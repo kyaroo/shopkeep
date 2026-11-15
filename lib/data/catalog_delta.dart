@@ -1,16 +1,18 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import '../models/catalog_entry.dart';
 import 'provisioning.dart';
 
-/// `.myhanout` — a shop-scoped, signed catalog delta file.
+/// `.myhanout` — a signed catalog delta file.
 ///
 /// Carries only the catalog rows that changed since [baseVersion]. The
 /// shopkeeper applies it offline (a file received over WhatsApp, from a file
-/// manager, ...). The signature reuses the provisioning HMAC secret and is
-/// bound to the shop (`shop_key` + `shop_id`), so a tampered file — or one
-/// belonging to another shop — is rejected.
+/// manager, ...). The signature reuses the provisioning HMAC secret.
+///
+/// The catalog is **universal**: a delta's content (name / name_ar / name_en /
+/// category / photo) is identical for every shop, so it is deliberately *not*
+/// bound to a shop — any device may apply any validly signed delta. Shop data
+/// (price, stock) never travels here, which is what keeps the listing safe.
 ///
 /// Only catalog fields travel here: name / name_ar / name_en / category /
 /// photo. The shop's listing (price, stock) is never touched, so a delta
@@ -19,9 +21,6 @@ class CatalogDelta {
   static const String format = 'myhanout-catalog-delta';
   static const String fileExtension = '.myhanout';
   static const int fileVersion = 1;
-
-  final String shopKey;
-  final String shopId;
 
   /// The catalog version this delta applies to (the shopkeeper's installed one).
   final int baseVersion;
@@ -33,8 +32,6 @@ class CatalogDelta {
   final List<String> deletes;
 
   CatalogDelta({
-    required this.shopKey,
-    required this.shopId,
     required this.baseVersion,
     required this.targetVersion,
     required this.generatedAt,
@@ -46,8 +43,6 @@ class CatalogDelta {
   Map<String, dynamic> _payload() => <String, dynamic>{
         'format': format,
         'version': fileVersion,
-        'shop_key': shopKey,
-        'shop_id': shopId,
         'base_version': baseVersion,
         'target_version': targetVersion,
         'generated_at': generatedAt,
@@ -73,12 +68,8 @@ class CatalogDelta {
         .convert(<String, dynamic>{...payload, 'signature': signature});
   }
 
-  /// Verifies the signature and the shop binding, then decodes the delta.
-  static DeltaVerification verify(
-    String json, {
-    required String shopKey,
-    required String shopId,
-  }) {
+  /// Verifies the signature, then decodes the delta.
+  static DeltaVerification verify(String json) {
     Map<String, dynamic> map;
     try {
       map = jsonDecode(json) as Map<String, dynamic>;
@@ -93,16 +84,8 @@ class CatalogDelta {
     if (!Provisioning.verifySignature(jsonEncode(map), signature)) {
       return DeltaVerification.failed('bad signature');
     }
-    if (map['shop_key'] != shopKey) {
-      return DeltaVerification.failed('shop_key mismatch');
-    }
-    if (map['shop_id'] != shopId) {
-      return DeltaVerification.failed('shop_id mismatch');
-    }
     return DeltaVerification.ok(
       CatalogDelta(
-        shopKey: map['shop_key'] as String,
-        shopId: map['shop_id'] as String,
         baseVersion: map['base_version'] as int,
         targetVersion: map['target_version'] as int,
         generatedAt: map['generated_at'] as int,

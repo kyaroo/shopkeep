@@ -9,7 +9,7 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 | `listing` | **per shop** | barcode, `price_cents`, `stock_qty` |
 
 - Shopkeeper carries the whole catalog locally; **browse UI deliberately KEPT** (testing surface).
-- Updates: **admin → shopkeeper** `.myhanout` delta (HMAC = QR secret, bound to `shop_id`+`shop_key`).
+- Updates: **admin → shopkeeper** `.myhanout` delta (HMAC = QR secret; the catalog is universal → **no shop binding**, any device may apply any signed delta).
 - Inventory refresh: **display-only, fills gaps**; never price/stock/name.
 - Unknown barcode: capture name + photo at add time, flagged for easy recovery.
 
@@ -24,8 +24,9 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 | CAT8 manifest intent filter (both flavors) + receive | ✅ |
 | S1/S2/S3 + 418-product scale test | ✅ 418/418, 0 missing, 0 size mismatches |
 | **S4 + S5** | ✅ base-version guard (stale delta rejected whole, version advances) + display-only refresh proof (74/74 tests) |
-| **A1–A3 + V2** | ✅ offline isolation: lookups/join/sync gated; release shopkeeper APK grep-clean |
+| **Catalog universal** | ✅ `.myhanout` deltas carry **no shop binding** — any device may apply any signed delta (decision 2026-11-15) |
 | **CAT2 install-time seed** | ✅ asset **60 MB** (14,669 / 13,125 photos); fresh install verified on device; debug 261 MB · release-arm64 **84.5 MB** |
+| **A1–A3 + V2** | ✅ offline isolation: lookups/join/sync gated; release shopkeeper APK grep-clean |
 
 ## Open — app
 | ID | Item | Est. | Deps |
@@ -48,7 +49,8 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 | A2 | Drop the join server call (`getShop`) — manual join accepts locally | ✅ 1h |
 | A3 | No sync client in the shopkeeper build (`loadSyncConfig` gated) | ✅ 0.5h |
 | V2 | Static proof: release shopkeeper APK has **0** hits for openfoodfacts / upcitemdb / mymemory / catalog.myhanout.ma (control strings present) | ✅ 0.5h |
-| B5,B4 | Per-shop `shop_id` + `qr_ttl`; QR v2 (shop-scoped, per-shop lifetime) | 6h |
+| B5 | ~~Per-shop `shop_id`~~ — **dropped** (catalog updates are universal; no shop binding) | — |
+| B4 | QR v2: per-shop lifetime (`ttl_seconds` travels in the token); payload names one `shop_key` | 4h |
 | B1,B3,B2,B6 | Listing bundle export/import + upsert + join rework | 18h |
 | V1,V2 | Airplane-mode run + APK grep proof | 2h |
 

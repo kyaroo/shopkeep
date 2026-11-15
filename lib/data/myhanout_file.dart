@@ -42,9 +42,7 @@ class MyhanoutFile {
   /// Verifies a `.myhanout` payload against the active shop and applies it.
   static Future<String> applyJson(String json) async {
     final shopKey = await Config.getCurrentShopKey();
-    final shopId = await Config.getShopId();
-    final verification =
-        CatalogDelta.verify(json, shopKey: shopKey, shopId: shopId);
+    final verification = CatalogDelta.verify(json);
     if (!verification.ok) return 'rejected: ${verification.error}';
     final d = verification.delta!;
 

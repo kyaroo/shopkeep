@@ -5,6 +5,7 @@
 /// an accepted delta advances the version.
 ///
 /// Run: flutter test test/poc/catalog_version_guard_poc_test.dart
+library catalog_version_guard_poc_test;
 
 import 'dart:typed_data';
 
@@ -18,13 +19,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 const _shopKey = 'hanouti';
-const _shopId = 'shop-abc-123';
 const _barcode = '0011210006508';
 final _photo = Uint8List.fromList([1, 2, 3, 4, 5]);
 
 CatalogDelta _delta(int base, int target) => CatalogDelta(
-      shopKey: _shopKey,
-      shopId: _shopId,
       baseVersion: base,
       targetVersion: target,
       generatedAt: target,
@@ -51,7 +49,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await Config.init();
     await Config.setCurrentShopKey(_shopKey);
-    await Config.setShopId(_shopId);
     // Let the catalog singleton initialize (seeding on first use) BEFORE the
     // test pins a version, otherwise the seed would overwrite it.
     await CatalogDb.instance.init();

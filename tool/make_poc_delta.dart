@@ -4,7 +4,6 @@
 //   dart run tool/make_poc_delta.dart \
 //     --barcode 6111035001673 --name "Aïn Atlas 50cl" --category beverage \
 //     --image test/poc/ain_atlas_off.jpg \
-//     --shop-key hanouti --shop-id hanouti-shop-001 \
 //     --base 1000 --target 1001 --out scratch/ain_atlas.myhanout
 //
 // Defaults reproduce the original Tabasco POC.
@@ -26,8 +25,6 @@ Future<void> main(List<String> args) async {
   final nameEn = _arg(args, '--name-en', 'Tabasco Habanero Sauce');
   final category = _arg(args, '--category', 'grocery');
   final imagePath = _arg(args, '--image', 'test/poc/tabasco_off.jpg');
-  final shopKey = _arg(args, '--shop-key', 'hanouti');
-  final shopId = _arg(args, '--shop-id', 'shop-abc-123');
   final base = int.parse(_arg(args, '--base', '1000'));
   final target = int.parse(_arg(args, '--target', '1001'));
   final out = _arg(args, '--out', 'poc.myhanout');
@@ -39,8 +36,6 @@ Future<void> main(List<String> args) async {
   }
 
   final delta = CatalogDelta(
-    shopKey: shopKey,
-    shopId: shopId,
     baseVersion: base,
     targetVersion: target,
     generatedAt: target,

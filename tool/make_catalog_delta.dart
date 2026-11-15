@@ -1,8 +1,11 @@
 // Builds a `.myhanout` catalog delta from a JSON export of catalog photos.
 //
+// The catalog is universal: no shop binding, so the same delta applies to any
+// shop. Only the base/target catalog versions matter.
+//
 // Usage:
 //   dart run tool/make_catalog_delta.dart <export.json> <out.myhanout> \
-//       <shopKey> <shopId> <baseVersion> <targetVersion>
+//       <baseVersion> <targetVersion>
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,17 +13,15 @@ import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 6) {
+  if (args.length != 4) {
     stderr.writeln('usage: make_catalog_delta.dart <export> <out> '
-        '<shopKey> <shopId> <base> <target>');
+        '<base> <target>');
     exit(2);
   }
   final exportPath = args[0];
   final outPath = args[1];
-  final shopKey = args[2];
-  final shopId = args[3];
-  final base = int.parse(args[4]);
-  final target = int.parse(args[5]);
+  final base = int.parse(args[2]);
+  final target = int.parse(args[3]);
 
   final rows = jsonDecode(await File(exportPath).readAsString()) as List;
   final upserts = rows
@@ -41,8 +42,6 @@ Future<void> main(List<String> args) async {
       .toList();
 
   final delta = CatalogDelta(
-    shopKey: shopKey,
-    shopId: shopId,
     baseVersion: base,
     targetVersion: target,
     generatedAt: target,

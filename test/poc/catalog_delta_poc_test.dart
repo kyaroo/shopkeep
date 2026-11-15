@@ -3,6 +3,9 @@
 /// Subject: barcode 0011210006508 (Tabasco Habanero Sauce) + its real OFF image
 /// downscaled to 128px by the app's own [processPhoto].
 ///
+/// The catalog is universal: a delta carries no shop binding, so any device
+/// may apply any validly signed delta.
+///
 /// Run: flutter test test/poc/catalog_delta_poc_test.dart
 library catalog_delta_poc_test;
 
@@ -16,8 +19,6 @@ import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/photo_processor.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
-const _shopKey = 'hanouti';
-const _shopId = 'shop-abc-123';
 const _barcode = '0011210006508';
 const _offUrl =
     'https://images.openfoodfacts.org/images/products/001/121/000/6508/front_en.61.200.jpg';
@@ -72,8 +73,6 @@ class _MemoryRepo implements CatalogRepository {
 
 CatalogDelta _delta(Uint8List photo, {int base = 1000, int target = 1001}) =>
     CatalogDelta(
-      shopKey: _shopKey,
-      shopId: _shopId,
       baseVersion: base,
       targetVersion: target,
       generatedAt: target,
@@ -96,7 +95,7 @@ void main() {
     final repo = _MemoryRepo();
 
     final file = _delta(photo).toFileJson();
-    final v = CatalogDelta.verify(file, shopKey: _shopKey, shopId: _shopId);
+    final v = CatalogDelta.verify(file);
     expect(v.ok, isTrue, reason: v.error);
     expect(v.delta!.baseVersion, 1000);
     expect(v.delta!.targetVersion, 1001);
@@ -113,38 +112,29 @@ void main() {
         'applied=1 entry, photo identical');
   });
 
-  test('2. wrong shop_id is rejected', () async {
-    final photo = processPhoto(await _sourceImage())!;
-    final file = _delta(photo).toFileJson();
-    final v = CatalogDelta.verify(file, shopKey: _shopKey, shopId: 'other-shop');
-    expect(v.ok, isFalse);
-    expect(v.error, 'shop_id mismatch');
-  });
-
-  test('3. tampered payload is rejected', () async {
+  test('2. tampered payload is rejected', () async {
     final photo = processPhoto(await _sourceImage())!;
     final file = _delta(photo).toFileJson();
     final map = jsonDecode(file) as Map<String, dynamic>;
     (map['upserts'] as List).first['name'] = 'Fake Product';
-    final v = CatalogDelta.verify(jsonEncode(map), shopKey: _shopKey, shopId: _shopId);
+    final v = CatalogDelta.verify(jsonEncode(map));
     expect(v.ok, isFalse);
     expect(v.error, 'bad signature');
   });
 
-  test('4. unsigned file is rejected', () async {
+  test('3. unsigned file is rejected', () async {
     final photo = processPhoto(await _sourceImage())!;
     final file = _delta(photo).toFileJson();
-    final map = jsonDecode(file) as Map<String, dynamic>..remove('signature');
-    final v = CatalogDelta.verify(jsonEncode(map), shopKey: _shopKey, shopId: _shopId);
+    final map = (jsonDecode(file) as Map<String, dynamic>)..remove('signature');
+    final v = CatalogDelta.verify(jsonEncode(map));
     expect(v.ok, isFalse);
     expect(v.error, 'missing signature');
   });
 
-  test('5. apply is idempotent', () async {
+  test('4. apply is idempotent', () async {
     final photo = processPhoto(await _sourceImage())!;
     final repo = _MemoryRepo();
-    final v = CatalogDelta.verify(_delta(photo).toFileJson(),
-        shopKey: _shopKey, shopId: _shopId);
+    final v = CatalogDelta.verify(_delta(photo).toFileJson());
     await v.delta!.apply(repo);
     final first = await repo.get(_barcode);
     await v.delta!.apply(repo);
