@@ -21,6 +21,34 @@ class SyncResult {
   bool get ok => rejected.isEmpty;
 }
 
+/// A shop registered on the catalog server.
+///
+/// [catalogVersion] is the **server-side** truth: the generation the shop is
+/// on, reported by the admin after a delivery. 0 means "never reported".
+class ShopRow {
+  final String shopKey;
+  final String businessName;
+  final int catalogVersion;
+  final int createdAt;
+  final String? deviceId;
+
+  const ShopRow({
+    required this.shopKey,
+    required this.businessName,
+    required this.catalogVersion,
+    required this.createdAt,
+    this.deviceId,
+  });
+
+  factory ShopRow.fromMap(Map<String, dynamic> m) => ShopRow(
+        shopKey: (m['shop_key'] ?? '') as String,
+        businessName: (m['business_name'] ?? '') as String,
+        catalogVersion: (m['catalog_version'] as num?)?.toInt() ?? 0,
+        createdAt: (m['created_at'] as num?)?.toInt() ?? 0,
+        deviceId: m['device_id'] as String?,
+      );
+}
+
 /// Client for the catalog push server (server/app.py).
 /// On-demand only — the caller decides when to sync; this class never
 /// schedules or auto-triggers anything.
@@ -124,8 +152,26 @@ class CatalogSyncClient {
     }
   }
 
-  /// Looks up a shop on the server. Returns business name if found, else null.
-  Future<String?> getShop(String shopKey) async {
+  /// A shop registered on the server, with the catalog generation it is on.
+  /// [catalogVersion] is the server-side truth (0 = never reported).
+  Future<List<ShopRow>> listShops() async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/shops'), headers: _headers)
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('list shops ${resp.statusCode}: ${resp.body}');
+    }
+    final rows = jsonDecode(resp.body) as List;
+    return rows
+        .map((raw) => ShopRow.fromMap(raw as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Looks up a shop on the server. Returns the row if found, else null.
+  Future<ShopRow?> getShop(String shopKey) async {
     final resp = await _client
         .get(Uri.parse('$baseUrl/v1/shops/$shopKey'), headers: _headers)
         .timeout(const Duration(seconds: 12));
@@ -136,8 +182,7 @@ class CatalogSyncClient {
     if (resp.statusCode != 200) {
       throw SyncException('get shop ${resp.statusCode}: ${resp.body}');
     }
-    final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    return data['business_name'] as String?;
+    return ShopRow.fromMap(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
   void close() => _client.close();

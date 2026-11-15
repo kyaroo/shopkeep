@@ -12,6 +12,7 @@ import '../screens/shop_entry_screen.dart';
 import '../app_state.dart';
 import '../utils/slug.dart';
 import '../build_config.dart';
+import '../theme.dart';
 
 /// Settings screen: business name, shop management, export/import.
 class SettingsScreen extends StatefulWidget {
@@ -224,6 +225,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Installed catalog generation. Read-only, no network: the value
+          // advances when a `.myhanout` delta is applied on this device.
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.inventory_2_outlined),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('catalogVersionLabel'.tr(),
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ),
+                  FutureBuilder<int>(
+                    future: Config.getCatalogVersion(),
+                    builder: (context, snap) => Text(
+                      '${snap.data ?? 0}',
+                      style: Theme.of(context)
+                          .extension<AppTextStyles>()!
+                          .name(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),

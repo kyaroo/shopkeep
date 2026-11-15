@@ -13,6 +13,7 @@ import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
 import '../data/catalog_sync_client.dart';
 import 'catalog_home_page.dart';
+import 'catalog_push_screen.dart';
 
 /// Admin setup screen: create / manage shops.
 ///
@@ -258,6 +259,20 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                             },
                             icon: const Icon(Icons.qr_code_scanner),
                             label: const Text('Open Catalog'),
+                          ),
+                          const SizedBox(height: 8),
+                          // Distribution du catalogue: build a signed `.myhanout`
+                          // delta and hand it to one shop (WhatsApp / share).
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const CatalogPushScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.share),
+                            label: const Text('Distribute catalog'),
                           ),
                         ],
                       ),
