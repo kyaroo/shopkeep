@@ -187,6 +187,25 @@ class CatalogSyncClient {
     return data['open'] == true;
   }
 
+  /// Records the catalog version the shopkeeper is running, so the server
+  /// (single source of truth) knows which generation each shop is on.
+  /// Called by the admin after a push is applied.
+  Future<void> setCatalogVersion(String shopKey, int version) async {
+    final resp = await _client
+        .post(
+          Uri.parse('$baseUrl/v1/shops/$shopKey/catalog-version'),
+          headers: _headers,
+          body: jsonEncode({'catalog_version': version}),
+        )
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('set catalog version ${resp.statusCode}: ${resp.body}');
+    }
+  }
+
   /// Resolves a barcode against the server catalog (read API). Returns the
   /// canonical fields on hit, or null on 404. Throws SyncException/SyncAuth
   /// on server/auth error so the caller can fall back to manual entry.
