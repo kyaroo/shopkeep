@@ -5,6 +5,7 @@
 /// and it must leave a row that already has a photo completely alone.
 ///
 /// Run: flutter test test/poc/inventory_refresh_poc_test.dart
+library inventory_refresh_poc_test;
 
 import 'dart:io';
 import 'dart:typed_data';
