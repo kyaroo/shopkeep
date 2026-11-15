@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:myhanout/main.dart';
 import 'package:myhanout/app_state.dart';
+import 'package:myhanout/data/settings_service.dart';
 
 void main() {
   setUpAll(() {
@@ -25,9 +26,14 @@ void main() {
   testWidgets('Boot, switch to Arabic (RTL), then navigate to Inventory',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      ChangeNotifierProvider<AppState>.value(
-        value: AppState(),
-        child: MyhanoutApp(shopKey: 'default'),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AppState>.value(value: AppState()),
+          // The app reads its settings through this seam; the test uses the
+          // real SharedPreferences-backed store (mocked in setUpAll).
+          Provider<SettingsService>.value(value: const ConfigSettingsService()),
+        ],
+        child: MyhanoutApp(shopKey: 'default', settings: const ConfigSettingsService()),
       ),
     );
     await settle(tester);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../data/config.dart';
+import 'package:provider/provider.dart';
+
+import '../data/settings_service.dart';
 import '../theme.dart';
 
 /// Shop picker: list all known shops, switch active shop, or open settings/admin.
@@ -15,6 +17,8 @@ class _ShopPickerScreenState extends State<ShopPickerScreen> {
   List<String> _shopKeys = [];
   bool _loading = true;
 
+  SettingsService get _settings => context.read<SettingsService>();
+
   @override
   void initState() {
     super.initState();
@@ -22,7 +26,7 @@ class _ShopPickerScreenState extends State<ShopPickerScreen> {
   }
 
   Future<void> _loadShops() async {
-    final list = await Config.getShopList();
+    final list = await _settings.getShopList();
     setState(() {
       _shopKeys = list;
       _loading = false;
@@ -55,7 +59,7 @@ class _ShopPickerScreenState extends State<ShopPickerScreen> {
                         subtitle: Text('shopKey'.tr() + ': ' + key),
                         trailing: const Icon(Icons.arrow_forward_ios),
                         onTap: () {
-                          Config.setCurrentShopKey(key);
+                          _settings.setCurrentShopKey(key);
                           Navigator.of(context).pop();
                         },
                       );

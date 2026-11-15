@@ -49,6 +49,10 @@ class ShopRow {
       );
 }
 
+/// Builds a catalog sync client. Injectable so services and tests can supply
+/// their own instead of the static [SyncConfig.defaultClient] locator.
+typedef CatalogSyncClientFactory = Future<CatalogSyncClient> Function();
+
 /// Client for the catalog push server (server/app.py).
 /// On-demand only — the caller decides when to sync; this class never
 /// schedules or auto-triggers anything.

@@ -5,7 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../build_config.dart';
-import '../data/config.dart';
+import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../utils/slug.dart';
 import '../data/provisioning.dart';
@@ -27,6 +27,8 @@ class AdminSetupScreen extends StatefulWidget {
 }
 
 class _AdminSetupScreenState extends State<AdminSetupScreen> {
+  SettingsService get _settings => context.read<SettingsService>();
+
   final _nameController = TextEditingController();
   final _shopKeyController = TextEditingController();
   List<String> _shopKeys = [];
@@ -52,7 +54,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
   }
 
   Future<void> _loadShops() async {
-    final list = await Config.getShopList();
+    final list = await _settings.getShopList();
     if (mounted) {
       setState(() {
         _shopKeys = list;
@@ -69,6 +71,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
       final key = await ShopProvisioningService.createShop(
         name: name,
         key: requestedKey.isEmpty ? null : requestedKey,
+        settings: _settings,
       );
       if (mounted) {
         _showProvisioningQr(key, name);
@@ -114,8 +117,8 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                 await client.deleteShop(key);
                 client.close();
               } catch (_) {}
-              await Config.removeShop(key);
-              await Config.removeShopBusinessName(key);
+              await _settings.removeShop(key);
+              await _settings.removeShopBusinessName(key);
               if (mounted) Navigator.pop(context);
               _loadShops();
             },
@@ -193,7 +196,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                                     icon: const Icon(Icons.qr_code),
                                     tooltip: 'showQr'.tr(),
                                     onPressed: () async {
-                                      final name = await Config.getShopBusinessName(key) ?? key;
+                                      final name = await _settings.getShopBusinessName(key) ?? key;
                                       if (!mounted) return;
                                       _showProvisioningQr(
                                         key,

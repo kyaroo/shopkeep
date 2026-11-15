@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
-import '../data/config.dart';
+import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../build_config.dart';
 import '../app_state.dart';
@@ -21,6 +21,8 @@ class ShopEntryScreen extends StatefulWidget {
 }
 
 class _ShopEntryScreenState extends State<ShopEntryScreen> {
+  SettingsService get _settings => context.read<SettingsService>();
+
   final _codeController = TextEditingController();
   bool _loading = false;
 
@@ -54,8 +56,8 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
         }
         return;
       }
-      await Config.setCurrentShopKey(code);
-      await Config.saveBusinessName(name);
+      await _settings.setCurrentShopKey(code);
+      await _settings.saveBusinessName(name);
       if (!mounted) return;
       context.read<AppState>().shopKey = code;
       context.read<AppState>().businessName = name;
@@ -73,7 +75,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     setState(() => _loading = true);
 
     if (kIsAdmin) {
-      final list = await Config.getShopList();
+      final list = await _settings.getShopList();
       if (!list.contains(code)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +85,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
         setState(() => _loading = false);
         return;
       }
-      await Config.setCurrentShopKey(code);
+      await _settings.setCurrentShopKey(code);
       if (mounted) Navigator.of(context).pop();
       setState(() => _loading = false);
       return;
@@ -93,8 +95,8 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     // accepted locally and binds this install to the shop. The QR path is the
     // real provisioning (it carries the business name); a typed code leaves the
     // stored name untouched, editable later in Settings.
-    await Config.setCurrentShopKey(code);
-    final name = await Config.getBusinessName();
+    await _settings.setCurrentShopKey(code);
+    final name = await _settings.getBusinessName();
     if (!mounted) return;
     final app = context.read<AppState>();
     app.shopKey = code;
@@ -152,6 +154,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
                 await ShopProvisioningService.createShop(
                   name: name,
                   key: keyInput.isEmpty ? null : keyInput,
+                  settings: _settings,
                 );
                 if (context.mounted) Navigator.pop(context, true);
               } catch (e) {

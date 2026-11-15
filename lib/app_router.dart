@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:myhanout/main.dart';
 import 'package:provider/provider.dart';
 import 'app_state.dart';
+import 'data/settings_service.dart';
 
 /// Stateless route resolver that replaces the inline `ShopHost` / `EndUserHost`
 /// guards in `main.dart`.
@@ -18,8 +19,9 @@ import 'app_state.dart';
 /// public API on [AppState].
 class AppRouter extends StatelessWidget {
   final AppState appState;
+  final SettingsService settings;
 
-  const AppRouter({super.key, required this.appState});
+  const AppRouter({super.key, required this.appState, required this.settings});
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +30,13 @@ class AppRouter extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) {
           if (state.shopKey.isEmpty) {
-            return const ShopEntryApp();
+            return ShopEntryApp(settings: settings);
           }
           return MyhanoutApp(
             key: ValueKey(state.shopKey),
             shopKey: state.shopKey,
             businessName: state.businessName,
+            settings: settings,
           );
         },
       ),

@@ -2,11 +2,12 @@ import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/catalog_db.dart';
 import '../data/catalog_sync_client.dart';
-import '../data/config.dart';
+import '../data/settings_service.dart';
 import '../data/sync_config.dart';
 import '../models/catalog_entry.dart';
 import '../services/catalog_version_service.dart';
@@ -25,7 +26,23 @@ import '../theme.dart';
 /// `target_version` = the next one. The shopkeeper's apply path rejects any
 /// delta whose base does not match what it has installed.
 class CatalogPushScreen extends StatefulWidget {
-  const CatalogPushScreen({super.key});
+  /// Settings store (shop keys + installed catalog version). Defaults to the
+  /// app-wide provider.
+  final SettingsService? settings;
+
+  /// Catalog source. Defaults to the shared [CatalogDb] singleton.
+  final CatalogRepository? repository;
+
+  /// Sync-client factory. Defaults to [SyncConfig.defaultClient]; injectable so
+  /// tests can supply a fake without touching SharedPreferences.
+  final CatalogSyncClientFactory? clientFactory;
+
+  const CatalogPushScreen({
+    super.key,
+    this.settings,
+    this.repository,
+    this.clientFactory,
+  });
 
   @override
   State<CatalogPushScreen> createState() => _CatalogPushScreenState();
@@ -33,6 +50,14 @@ class CatalogPushScreen extends StatefulWidget {
 
 class _CatalogPushScreenState extends State<CatalogPushScreen> {
   final PushTracker _tracker = PushTracker();
+
+  SettingsService get _settings =>
+      widget.settings ?? context.read<SettingsService>();
+
+  CatalogRepository get _repo => widget.repository ?? CatalogDb.instance;
+
+  CatalogSyncClientFactory get _clientFactory =>
+      widget.clientFactory ?? SyncConfig.defaultClient;
 
   List<ShopRow> _shops = [];
   List<CatalogEntry> _entries = [];
@@ -55,29 +80,22 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
       _error = null;
     });
     try {
-      final config = await SyncConfig.load();
-      if (!config.isConfigured) {
-        if (!mounted) return;
-        setState(() {
-          _loading = false;
-          _error = 'catalogPushNotConfigured'.tr();
-        });
-        return;
-      }
-      final client = config.client();
       List<ShopRow> shops;
       try {
-        shops = await client.listShops();
+        final client = await _clientFactory();
+        try {
+          shops = await client.listShops();
+        } finally {
+          client.close();
+        }
       } on SyncException {
         // Server unreachable / token rejected: the admin's own catalog is still
         // usable, but there is no shop list to target.
         shops = const [];
-      } finally {
-        client.close();
       }
-      await CatalogDb.instance.init();
-      final entries = await CatalogDb.instance.all();
-      final local = await _localVersion();
+      await _repo.init();
+      final entries = await _repo.all();
+      final local = await _settings.getCatalogVersion();
       if (!mounted) return;
       setState(() {
         _shops = shops;
@@ -97,7 +115,7 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
   /// The version the admin's catalog is at: the seed is 1 and every applied
   /// delta advances it, so the local value is the next target when nothing has
   /// been delivered yet.
-  Future<int> _localVersion() => Config.getCatalogVersion();
+  Future<int> _localVersion() => _settings.getCatalogVersion();
 
   Future<void> _buildAndShare() async {
     final shop = _selected;
@@ -205,10 +223,12 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
   Future<void> _recordDelivery(String shopKey, int target) async {
     _tracker.record(shopKey, target, DateTime.now().millisecondsSinceEpoch);
     try {
-      final config = await SyncConfig.load();
-      final client = config.client();
-      await CatalogVersionService(client).report(shopKey, target);
-      client.close();
+      final client = await _clientFactory();
+      try {
+        await CatalogVersionService(client).report(shopKey, target);
+      } finally {
+        client.close();
+      }
     } on Exception {
       // Best-effort: the delivery happened, the server just does not know yet.
       // The next delivery re-reports.

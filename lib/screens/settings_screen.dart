@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
-import '../data/config.dart';
+import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
@@ -24,6 +24,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  SettingsService get _settings => context.read<SettingsService>();
+
   late TextEditingController _nameController;
   final _shopNameController = TextEditingController();
   final _shopKeyController = TextEditingController();
@@ -53,13 +55,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadBusinessName() async {
-    final name = await Config.getBusinessName();
+    final name = await _settings.getBusinessName();
     if (mounted) _nameController.text = name;
   }
 
   Future<void> _loadShops() async {
-    final list = await Config.getShopList();
-    final current = await Config.getCurrentShopKey();
+    final list = await _settings.getShopList();
+    final current = await _settings.getCurrentShopKey();
     if (mounted) {
       setState(() {
         _shopKeys = list;
@@ -72,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveBusinessName() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    await Config.saveBusinessName(name);
+    await _settings.saveBusinessName(name);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('businessNameSaved'.tr())),
@@ -89,6 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         name: name,
         key: keyInput.isEmpty ? null : keyInput,
         registerOnServer: false,
+        settings: _settings,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -112,8 +115,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _useShop(String key) async {
     final appState = context.read<AppState>();
-    await Config.setCurrentShopKey(key);
-    final name = await Config.getBusinessName();
+    await _settings.setCurrentShopKey(key);
+    final name = await _settings.getBusinessName();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('shopSelected'.tr(namedArgs: {'key': key}))),
@@ -140,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (ok != true) return;
-    await Config.removeShop(key);
+    await _settings.removeShop(key);
     if (mounted) {
       _loadShops();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,7 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: Theme.of(context).textTheme.bodyMedium),
                   ),
                   FutureBuilder<int>(
-                    future: Config.getCatalogVersion(),
+                    future: _settings.getCatalogVersion(),
                     builder: (context, snap) => Text(
                       '${snap.data ?? 0}',
                       style: Theme.of(context)

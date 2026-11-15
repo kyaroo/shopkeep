@@ -1,5 +1,6 @@
 import '../data/config.dart';
 import '../data/provisioning.dart';
+import '../data/settings_service.dart';
 import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
 import '../utils/slug.dart';
@@ -21,25 +22,28 @@ class ShopProvisioningService {
     required String name,
     String? key,
     bool registerOnServer = true,
+    SettingsService? settings,
+    CatalogSyncClientFactory? clientFactory,
   }) async {
     final baseKey = (key == null || key.trim().isEmpty)
         ? slugify(name)
         : slugify(key);
     final finalKey = baseKey.isEmpty ? 'shop' : baseKey;
 
-    final existing = await Config.getShopList();
+    final store = settings ?? const ConfigSettingsService();
+    final existing = await store.getShopList();
     if (existing.contains(finalKey)) {
       throw const DuplicateShopKeyException();
     }
 
-    await Config.addShop(finalKey, name);
-    await Config.setCurrentShopKey(finalKey);
-    await Config.saveBusinessName(name);
-    await Config.saveShopBusinessName(finalKey, name);
+    await store.addShop(finalKey, name);
+    await store.setCurrentShopKey(finalKey);
+    await store.saveBusinessName(name);
+    await store.saveShopBusinessName(finalKey, name);
 
     if (registerOnServer) {
       try {
-        final client = await SyncConfig.defaultClient();
+        final client = await (clientFactory ?? SyncConfig.defaultClient)();
         await client.registerShop(finalKey, name);
         client.close();
       } catch (_) {

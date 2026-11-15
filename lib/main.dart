@@ -8,6 +8,7 @@ import 'providers/sales_provider.dart';
 import 'build_config.dart';
 import 'data/config.dart';
 import 'data/myhanout_file.dart';
+import 'data/settings_service.dart';
 import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
@@ -28,47 +29,53 @@ void main() async {
   await EasyLocalization.ensureInitialized();
   await Config.init();
 
+  // Bootstrap the settings seam once. `Config` is still the static store (it
+  // must be readable before any widget exists); everything above this point
+  // receives [settings] by injection instead.
+  final settings = const ConfigSettingsService();
+
   // Source of truth for the active shop + business name. Previously these two
-  // `ValueNotifier`s lived at package scope (`main.dart`), which made them a
+  // `ValueNotifier`s lived at package scope (`app_state.dart`), which made them a
   // hidden global dependency of every screen and provider. They are now owned
-  // by [AppState] and exposed via [MultiProvider] at the root.
+  // by [AppState] and exposed via `MultiProvider` at the root.
   final appState = AppState();
 
   if (!kIsAdmin) {
-    final active = await Config.getCurrentShopKey();
+    final active = await settings.getCurrentShopKey();
     if (active.isNotEmpty && active != 'default') {
-      final businessName = await Config.getBusinessName();
+      final businessName = await settings.getBusinessName();
       appState.shopKey = active;
       appState.businessName = businessName;
     } else {
       appState.shopKey = '';
       appState.businessName = 'Maison du Marché';
     }
-    runApp(AppRouter(appState: appState));
+    runApp(AppRouter(appState: appState, settings: settings));
     return;
   }
 
-  final shopList = await Config.getShopList();
+  final shopList = await settings.getShopList();
   if (shopList.isEmpty) {
-    runApp(const AdminSetupApp());
+    runApp(AdminSetupApp(settings: settings));
     return;
   }
   // If a shop was left active, open it.
-  final active = await Config.getCurrentShopKey();
+  final active = await settings.getCurrentShopKey();
   if (active.isNotEmpty) {
-    final businessName = await Config.getBusinessName();
+    final businessName = await settings.getBusinessName();
     appState.shopKey = active;
     appState.businessName = businessName;
-    runApp(AppRouter(appState: appState));
+    runApp(AppRouter(appState: appState, settings: settings));
     return;
   }
   // Otherwise → first-run onboarding.
-  runApp(const AdminSetupApp());
+  runApp(AdminSetupApp(settings: settings));
 }
 class MyhanoutApp extends StatelessWidget {
     final String shopKey;
     final String businessName;
-  const MyhanoutApp({super.key, required this.shopKey, this.businessName = 'Maison du Marché'});
+    final SettingsService settings;
+  const MyhanoutApp({super.key, required this.shopKey, this.businessName = 'Maison du Marché', required this.settings});
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +88,7 @@ class MyhanoutApp extends StatelessWidget {
       saveLocale: true,
       child: MultiProvider(
         providers: [
+          Provider<SettingsService>.value(value: settings),
           ChangeNotifierProvider(
             create: (_) => CartProvider(shopKey, businessName: businessName),
           ),
@@ -100,7 +108,8 @@ class MyhanoutApp extends StatelessWidget {
 
 /// Admin / first-run entry: full app with admin tools (named "myhanoutadmin").
 class ShopEntryApp extends StatelessWidget {
-  const ShopEntryApp({super.key});
+  final SettingsService settings;
+  const ShopEntryApp({super.key, required this.settings});
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +120,10 @@ class ShopEntryApp extends StatelessWidget {
       startLocale: const Locale('fr'),
       useOnlyLangCode: true,
       saveLocale: true,
-      child: const _ShopEntryLocalizedApp(),
+      child: Provider<SettingsService>.value(
+        value: settings,
+        child: const _ShopEntryLocalizedApp(),
+      ),
     );
   }
 }
@@ -137,7 +149,8 @@ class _ShopEntryLocalizedApp extends StatelessWidget {
 
 /// Admin setup screen: the full app (all tools) in one flavor.
 class AdminSetupApp extends StatelessWidget {
-  const AdminSetupApp({super.key});
+  final SettingsService settings;
+  const AdminSetupApp({super.key, required this.settings});
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +161,10 @@ class AdminSetupApp extends StatelessWidget {
       startLocale: const Locale('fr'),
       useOnlyLangCode: true,
       saveLocale: true,
-      child: const _AdminLocalizedApp(),
+      child: Provider<SettingsService>.value(
+        value: settings,
+        child: const _AdminLocalizedApp(),
+      ),
     );
   }
 }
@@ -169,15 +185,6 @@ class _AdminLocalizedApp extends StatelessWidget {
       home: const AdminSetupScreen(),
       debugShowCheckedModeBanner: false,
     );
-  }
-}
-
-class ShopHostApp extends StatelessWidget {
-  const ShopHostApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MyhanoutApp(shopKey: 'default', businessName: 'Maison du Marché');
   }
 }
 
@@ -220,7 +227,8 @@ class _HomePageState extends State<HomePage> {
   /// Applies a `.myhanout` catalog delta the app was opened with (WhatsApp,
   /// Downloads, a file manager). Silent when there is nothing to apply.
   Future<void> _applyPendingFile() async {
-    final result = await MyhanoutFile.handleLaunchIntent();
+    final result =
+        await MyhanoutFile.handleLaunchIntent(settings: context.read<SettingsService>());
     if (result == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result), duration: const Duration(seconds: 4)),
