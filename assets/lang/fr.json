@@ -117,5 +117,10 @@
   "catalogPushConfirm": "Remis",
   "catalogPushFailed": "Échec : {error}",
   "catalogVersionLabel": "Version du catalogue",
-  "catalogPushPhotosAdjusted": "Photos ajustées : {trimmed} redimensionnée(s), {dropped} abandonnée(s) (trop lourde). Nom et catégorie conservés."
+  "catalogPushPhotosAdjusted": "Photos ajustées : {trimmed} redimensionnée(s), {dropped} abandonnée(s) (trop lourde). Nom et catégorie conservés.",
+  "provisioningTtlLabel": "Validité du code",
+  "ttl30min": "30 minutes",
+  "ttl1h": "1 heure",
+  "ttl1d": "1 jour",
+  "ttl7d": "7 jours"
 }

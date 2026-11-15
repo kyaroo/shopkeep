@@ -117,5 +117,10 @@
   "catalogPushConfirm": "تم التسليم",
   "catalogPushFailed": "فشل: {error}",
   "catalogVersionLabel": "نسخة الدليل",
-  "catalogPushPhotosAdjusted": "الصور المعدّلة: {trimmed} أُعيد تحجيمها، {dropped} أُسقطت (ثقيلة جدًا). الاسم والتصنيف محفوظان."
+  "catalogPushPhotosAdjusted": "الصور المعدّلة: {trimmed} أُعيد تحجيمها، {dropped} أُسقطت (ثقيلة جدًا). الاسم والتصنيف محفوظان.",
+  "provisioningTtlLabel": "صلاحية الرمز",
+  "ttl30min": "30 دقيقة",
+  "ttl1h": "ساعة واحدة",
+  "ttl1d": "يوم واحد",
+  "ttl7d": "7 أيام"
 }

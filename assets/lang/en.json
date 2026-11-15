@@ -117,5 +117,10 @@
   "catalogPushConfirm": "Handed over",
   "catalogPushFailed": "Failed: {error}",
   "catalogVersionLabel": "Catalog version",
-  "catalogPushPhotosAdjusted": "Photos adjusted: {trimmed} resized, {dropped} dropped (too heavy). Name and category kept."
+  "catalogPushPhotosAdjusted": "Photos adjusted: {trimmed} resized, {dropped} dropped (too heavy). Name and category kept.",
+  "provisioningTtlLabel": "Code validity",
+  "ttl30min": "30 minutes",
+  "ttl1h": "1 hour",
+  "ttl1d": "1 day",
+  "ttl7d": "7 days"
 }

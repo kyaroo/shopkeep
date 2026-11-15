@@ -50,13 +50,31 @@ class ShopProvisioningService {
   }
 
   /// Builds the signed provisioning QR payload for a shop.
-  static String buildProvisioningToken(String shopKey, String businessName) {
+  ///
+  /// [ttlSeconds] travels INSIDE the token (B4): the receiving device reads it
+  /// and decides how long the code stays valid, so one shop can be given a
+  /// 30-minute code and another a 7-day one without a server round-trip.
+  static String buildProvisioningToken(String shopKey, String businessName,
+      {int ttlSeconds = defaultProvisioningTtlSeconds}) {
     final payload = {
       'shop_key': shopKey,
       'business_name': businessName,
       'issued_at': DateTime.now().millisecondsSinceEpoch,
       'nonce': Provisioning.generateShopKey(length: 8),
+      'ttl_seconds': ttlSeconds,
     };
     return Provisioning.sign(payload);
   }
 }
+
+/// Default QR validity when the caller does not choose one (30 minutes).
+const int defaultProvisioningTtlSeconds = 1800;
+
+/// The TTL choices offered when generating a provisioning QR.
+/// Key = `ttl_seconds` placed in the token, value = i18n key.
+const Map<int, String> provisioningTtlChoices = {
+  1800: 'ttl30min',
+  3600: 'ttl1h',
+  86400: 'ttl1d',
+  604800: 'ttl7d',
+};

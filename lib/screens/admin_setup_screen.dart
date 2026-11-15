@@ -71,7 +71,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
         key: requestedKey.isEmpty ? null : requestedKey,
       );
       if (mounted) {
-        _showProvisioningQr(key, name, ShopProvisioningService.buildProvisioningToken(key, name));
+        _showProvisioningQr(key, name);
         _nameController.clear();
         _shopKeyController.clear();
         _loadShops();
@@ -88,24 +88,12 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     }
   }
 
-  void _showProvisioningQr(String shopKey, String businessName, String token) {
+  void _showProvisioningQr(String shopKey, String businessName) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text('shopCreated'.tr()),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            QrImageView(data: token, size: 200),
-            const SizedBox(height: 8),
-            SelectableText(shopKey, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(businessName),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('close'.tr())),
-        ],
+      builder: (_) => ProvisioningQrDialog(
+        shopKey: shopKey,
+        businessName: businessName,
       ),
     );
   }
@@ -210,7 +198,6 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                                       _showProvisioningQr(
                                         key,
                                         name,
-                                        ShopProvisioningService.buildProvisioningToken(key, name),
                                       );
                                     },
                                   ),
@@ -281,6 +268,77 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+/// Provisioning QR for one shop, with a TTL selector (B4).
+///
+/// The chosen lifetime is signed INTO the token (`ttl_seconds`), so the shop's
+/// phone decides how long the code stays valid — no server round-trip, and the
+/// admin can hand the same shop a short code today and a long one later.
+class ProvisioningQrDialog extends StatefulWidget {
+  final String shopKey;
+  final String businessName;
+
+  const ProvisioningQrDialog({
+    super.key,
+    required this.shopKey,
+    required this.businessName,
+  });
+
+  @override
+  State<ProvisioningQrDialog> createState() => _ProvisioningQrDialogState();
+}
+
+class _ProvisioningQrDialogState extends State<ProvisioningQrDialog> {
+  int _ttlSeconds = defaultProvisioningTtlSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    // Re-signed on every TTL change: the QR is only ever shown, never persisted.
+    final token = ShopProvisioningService.buildProvisioningToken(
+      widget.shopKey,
+      widget.businessName,
+      ttlSeconds: _ttlSeconds,
+    );
+    return AlertDialog(
+      title: Text('shopCreated'.tr()),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          QrImageView(data: token, size: 200),
+          const SizedBox(height: 8),
+          SelectableText(widget.shopKey,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(widget.businessName),
+          const SizedBox(height: 12),
+          // Label + dropdown: the value lives in the token, not in a setting.
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text('provisioningTtlLabel'.tr(),
+                style: Theme.of(context).textTheme.bodySmall),
+          ),
+          DropdownButton<int>(
+            value: _ttlSeconds,
+            isExpanded: true,
+            onChanged: (v) {
+              if (v != null) setState(() => _ttlSeconds = v);
+            },
+            items: provisioningTtlChoices.entries
+                .map((e) => DropdownMenuItem<int>(
+                      value: e.key,
+                      child: Text(e.value.tr()),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: Text('close'.tr())),
+      ],
     );
   }
 }

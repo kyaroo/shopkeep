@@ -13,6 +13,13 @@ class Provisioning {
     return List.generate(length, (_) => chars[rng.nextInt(chars.length)]).join();
   }
 
+  /// Fallback lifetime for tokens issued before per-token TTL existed.
+  static const Duration defaultTtl = Duration(minutes: 30);
+
+  /// Clock skew tolerated when rejecting future-dated tokens (a phone clock
+  /// slightly ahead of the admin's must not invalidate a fresh code).
+  static const Duration maxClockSkew = Duration(seconds: 60);
+
   /// Signs a payload and returns `base64(payload).base64(signature)`.
   static String sign(Map<String, dynamic> payload) {
     final json = jsonEncode(payload);
@@ -24,7 +31,14 @@ class Provisioning {
   }
 
   /// Verifies signature and expiry. Returns payload map if valid, else null.
-  static Map<String, dynamic>? verify(String token, {Duration maxAge = const Duration(minutes: 30)}) {
+  ///
+  /// Lifetime resolution order: an explicit [maxAge] (caller override) wins;
+  /// otherwise the token's own `ttl_seconds` (B4) is used; tokens without it
+  /// fall back to [defaultTtl], so codes issued before B4 stay valid.
+  ///
+  /// Tokens dated in the future beyond [maxClockSkew] are rejected — an
+  /// `issued_at` from next week is not a code anyone scanned.
+  static Map<String, dynamic>? verify(String token, {Duration? maxAge}) {
     final parts = token.split('.');
     if (parts.length != 2) return null;
     final payloadB64 = parts[0];
@@ -38,11 +52,27 @@ class Provisioning {
       final issuedAt = payload['issued_at'] as int?;
       if (issuedAt == null) return null;
       final issued = DateTime.fromMillisecondsSinceEpoch(issuedAt);
-      if (DateTime.now().difference(issued).abs() > maxAge) return null;
+      final age = DateTime.now().difference(issued);
+      final ttl = _ttlFor(payload, maxAge);
+      if (age > ttl) return null;
+      if (age.isNegative && -age > maxClockSkew) return null;
       return payload;
     } catch (_) {
       return null;
     }
+  }
+
+  /// Lifetime for a token: caller override, else the token's `ttl_seconds`,
+  /// else [defaultTtl]. A malformed/absent `ttl_seconds` fails open to the
+  /// default rather than bricking an older code.
+  static Duration _ttlFor(Map<String, dynamic> payload, Duration? override) {
+    if (override != null) return override;
+    final raw = payload['ttl_seconds'];
+    if (raw is int && raw > 0) return Duration(seconds: raw);
+    if (raw is num && raw > 0) {
+      return Duration(milliseconds: (raw * 1000).round());
+    }
+    return defaultTtl;
   }
 
   /// Signs an arbitrary canonical JSON string. Used by `.myhanout` catalog
