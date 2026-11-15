@@ -24,10 +24,10 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   of truth; the shopkeeper keeps a local copy.
 
 ## Mainline (verified)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `6e697e5`, pushed to
-  `github.com:kyaroo/shopkeep.git`, 0 ahead, clean.
-  - `flutter analyze` → **No issues found!** (was 74 findings on 2026-11-15)
-  - `flutter test` → **119/119**
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `f1468cf`, pushed to
+  `github.com:kyaroo/shopkeep.git`, 0 ahead.
+  - `flutter analyze` → **No issues found!**
+  - `flutter test` → **126/126**
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -53,20 +53,20 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | ARCH-1…5 | screens never open the DB; DI; typed contract; paged inventory; file splits |
 | LINT | 74 → 0 analyzer findings; `lib/utils/app_log.dart` for structured logging |
 | A1 | barcode-mapper Flutter app dropped from the tree (`8c1ace1`, `a90b563`) |
+| **A4** | server hardening (`7d92524`): constant-time token compare, photo cap 64→50 KB, `server/tests/` 13 tests green |
+| **A5 / G2** | local-add recovery (`f1468cf`): filter chip + per-row undo, i18n fr/en/ar, 7 tests; analyze 0, 126/126, APK built |
 | Offline isolation | lookups/join/sync gated; release shopkeeper APK grep-clean |
 
 ## Open — app
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **G2** | Easy recovery / undo of locally added products (consumes `products.source`) | 4 h (M) | **delegated** |
-| **B0** | Specification spike: listing bundle + join rework | 2 h (S) | next; gates Phase B |
-| **B1/B3/B2/B6** | Listing bundle export/import + upsert + join rework | 18 h (L) | after B0 |
+| **B0** | Listing bundle + join rework specification | 2 h (S) | **spec written** — `docs/phase-b-listing-bundle-join-spec.md` (366 l., **untracked**); to review + commit |
+| **B1/B3/B2/B6** | Listing bundle export/import + upsert + join rework | 18 h (L) | after B0 is committed |
 
 ## Open — server
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **A3** | Prod round-trip verification of `catalog-version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token** |
-| **A4** | Hardening: constant-time token compare, first API tests, photo-cap alignment | 3 h (M) | **delegated** |
+| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token**; run after the prod redeploy |
 
 ## Parked (not now — decision 2026-11-15)
 - **C2** photo capture in the *shopkeeper* product form (already in the admin
