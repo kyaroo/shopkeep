@@ -122,5 +122,10 @@
   "ttl30min": "30 minutes",
   "ttl1h": "1 hour",
   "ttl1d": "1 day",
-  "ttl7d": "7 days"
+  "ttl7d": "7 days",
+  "localOnly": "Added locally",
+  "undoLocalAdd": "Undo local addition",
+  "undoLocalConfirm": "Undo the local addition of \"{name}\"? The product will be removed from inventory.",
+  "localAddUndone": "Local addition undone",
+  "noLocalProducts": "No local additions yet.\nTap + to add one."
 }

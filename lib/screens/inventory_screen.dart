@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/product.dart';
+import '../models/inventory_filter.dart';
 import '../models/catalog_prefill.dart';
 import '../providers/cart_provider.dart';
 import '../utils/money.dart';
@@ -37,7 +38,7 @@ class InventoryBody extends StatefulWidget {
 class _InventoryBodyState extends State<InventoryBody> {
   final TextEditingController _search = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  bool _lowStockOnly = false;
+  InventoryFilter _filter = InventoryFilter.all;
 
   @override
   void initState() {
@@ -83,13 +84,54 @@ class _InventoryBodyState extends State<InventoryBody> {
     }
   }
 
+  /// G2 — recovery affordance for a LOCAL addition.
+  ///
+  /// A row the shopkeeper typed by hand has no catalog counterpart to fall
+  /// back to, so deleting it is the undo: it removes exactly what the local
+  /// add created. Catalog rows keep the generic edit/delete actions and never
+  /// see this affordance.
+  Future<void> _confirmUndoLocal(Product p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('undoLocalAdd'.tr()),
+        content: Text('undoLocalConfirm'.tr(namedArgs: {'name': p.name})),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('cancel'.tr())),
+          // 'undo' and 'cancel' are both "Annuler" in French; the confirm
+          // action really is a delete, so label it with the delete key.
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('delete'.tr(),
+                  style: TextStyle(
+                      color:
+                          Theme.of(context).extension<AppColors>()!.warning))),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await Provider.of<CartProvider>(context, listen: false)
+          .deleteProduct(p.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('localAddUndone'.tr())));
+      }
+    }
+  }
+
+  /// The selected view is low stock (empty state says "inventory OK").
+  bool get _isLowStockView => _filter == InventoryFilter.lowStock;
+
+  /// The selected view is local additions (empty state explains what that is).
+  bool get _isLocalView => _filter == InventoryFilter.local;
+
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final allProducts = cart.products;
-    final products = _lowStockOnly
-        ? allProducts.where((p) => p.isLowStock).toList()
-        : allProducts;
+    final products = _filter.apply(allProducts);
     // Paged: the list renders what is loaded; scrolling near the end fetches
     // the next page. The summary reports the real total. Deferred to after the
     // frame — notifying listeners during build would throw.
@@ -118,17 +160,41 @@ class _InventoryBodyState extends State<InventoryBody> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
+          // Wrap, not Row: three chips + the browse action overflow a phone
+          // width, and a silently clipped filter chip is worse than a second
+          // line.
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilterChip(
                 label: Text('all'.tr(),
                     style: Theme.of(context)
                         .extension<AppTextStyles>()!
                         .label(context)),
-                selected: !_lowStockOnly,
-                onSelected: (_) => setState(() => _lowStockOnly = false),
+                selected: _filter == InventoryFilter.all,
+                onSelected: (_) =>
+                    setState(() => _filter = InventoryFilter.all),
               ),
-              const SizedBox(width: 8),
+              FilterChip(
+                label: Text('lowStock'.tr(),
+                    style: Theme.of(context)
+                        .extension<AppTextStyles>()!
+                        .label(context)),
+                selected: _filter == InventoryFilter.lowStock,
+                onSelected: (_) =>
+                    setState(() => _filter = InventoryFilter.lowStock),
+              ),
+              FilterChip(
+                label: Text('localOnly'.tr(),
+                    style: Theme.of(context)
+                        .extension<AppTextStyles>()!
+                        .label(context)),
+                selected: _filter == InventoryFilter.local,
+                onSelected: (_) =>
+                    setState(() => _filter = InventoryFilter.local),
+              ),
               TextButton.icon(
                 onPressed: () async {
                   final selected = await Navigator.of(context).push<CatalogPrefill>(
@@ -149,15 +215,6 @@ class _InventoryBodyState extends State<InventoryBody> {
                 },
                 icon: const Icon(Icons.travel_explore, size: 18),
                 label: const Text('Browse catalog'),
-              ),
-              const SizedBox(width: 8),
-              FilterChip(
-                label: Text('lowStock'.tr(),
-                    style: Theme.of(context)
-                        .extension<AppTextStyles>()!
-                        .label(context)),
-                selected: _lowStockOnly,
-                onSelected: (_) => setState(() => _lowStockOnly = true),
               ),
             ],
           ),
@@ -188,7 +245,7 @@ class _InventoryBodyState extends State<InventoryBody> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                              _lowStockOnly
+                              _isLowStockView
                                   ? Icons.check_circle_outline
                                   : Icons.inventory_2_outlined,
                               size: 48,
@@ -198,11 +255,13 @@ class _InventoryBodyState extends State<InventoryBody> {
                                   .withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           Text(
-                            _lowStockOnly
+                            _isLowStockView
                                 ? 'inventoryOk'.tr()
-                                : 'noProducts'.tr(),
+                                : _isLocalView
+                                    ? 'noLocalProducts'.tr()
+                                    : 'noProducts'.tr(),
                             textAlign: TextAlign.center,
-                            style: _lowStockOnly
+                            style: _isLowStockView
                                 ? Theme.of(context)
                                     .extension<AppTextStyles>()!
                                     .name(context)
@@ -255,6 +314,18 @@ class _InventoryBodyState extends State<InventoryBody> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // G2 recovery: local-only, warning-tinted undo
+                              // icon, distinct from the neutral edit and the
+                              // destructive overflow delete.
+                              if (p.isLocal)
+                                IconButton(
+                                  icon: const Icon(Icons.undo),
+                                  tooltip: 'undoLocalAdd'.tr(),
+                                  color: Theme.of(context)
+                                      .extension<AppColors>()!
+                                      .warning,
+                                  onPressed: () => _confirmUndoLocal(p),
+                                ),
                               IconButton(
                                 icon: const Icon(Icons.edit),
                                 tooltip: 'editProduct'.tr(),
