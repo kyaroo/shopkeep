@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import '../providers/cart_provider.dart';
 import '../models/product.dart';
 import '../models/product_lookup_result.dart';
-import '../data/db.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import 'scan_page.dart';
@@ -30,12 +29,8 @@ Future<void> scanToAdd(BuildContext context) async {
   }
 }
 
-Future<dynamic> _lookup(String code, CartProvider cart) async {
-  final inCache = cart.products.where((p) => p.barcode == code).firstOrNull;
-  if (inCache != null) return inCache;
-  final db = await Db.open(cart.shopKey);
-  return db.getByBarcode(cart.shopKey, code);
-}
+Future<Product?> _lookup(String code, CartProvider cart) =>
+    cart.findByBarcode(code);
 
 /// Body of the Checkout tab (the single AppBar/FAB live in HomePage).
 class CheckoutBody extends StatelessWidget {

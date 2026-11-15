@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app_router.dart';
 import 'providers/cart_provider.dart';
 import 'providers/catalog_provider.dart';
+import 'providers/sales_provider.dart';
 import 'build_config.dart';
 import 'data/config.dart';
 import 'data/myhanout_file.dart';
@@ -298,7 +299,10 @@ class _HomePageState extends State<HomePage> {
           const CheckoutBody(),
           const InventoryBody(),
           Consumer<AppState>(
-            builder: (_context, appState, __) => SalesHistoryScreen(shopKey: appState.shopKey),
+            builder: (_context, appState, __) => ChangeNotifierProvider(
+              create: (_) => SalesProvider(appState.shopKey),
+              child: const SalesHistoryScreen(),
+            ),
           ),
         ],
       ),

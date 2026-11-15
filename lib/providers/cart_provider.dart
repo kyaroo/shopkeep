@@ -37,6 +37,16 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Barcode lookup for the checkout scan: the in-memory list first, then the
+  /// shop database. Keeps the scan path offline and lets the screen stay clear
+  /// of the data layer.
+  Future<Product?> findByBarcode(String barcode) async {
+    final cached = _products.where((p) => p.barcode == barcode).firstOrNull;
+    if (cached != null) return cached;
+    final db = await Db.open(shopKey);
+    return db.getByBarcode(shopKey, barcode);
+  }
+
   /// Inserts a new product or updates an existing one (matched by id).
   Future<void> saveProduct(Product p) async {
     if (p.id == null) {

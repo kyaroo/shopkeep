@@ -1,68 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../data/db.dart';
-import '../models/sale.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/sales_provider.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import 'sale_detail_screen.dart';
 
-class SalesHistoryScreen extends StatefulWidget {
-  final String shopKey;
-  const SalesHistoryScreen({super.key, this.shopKey = 'default'});
+/// Sales history for the active shop. Stateless: all state and data access
+/// live in [SalesProvider].
+class SalesHistoryScreen extends StatelessWidget {
+  const SalesHistoryScreen({super.key});
 
-  @override
-  State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
-}
-
-class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
-  late DateTime _startDate;
-  late DateTime _endDate;
-  List<Sale> _sales = [];
-  Map<String, int> _stats = {};
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month, now.day);
-    _endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
-    final db = await Db.open(widget.shopKey);
-    final sales = await db.getSales(widget.shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
-    final stats = await db.getSalesStats(widget.shopKey, startMs: _startDate.millisecondsSinceEpoch, endMs: _endDate.millisecondsSinceEpoch);
-    if (!mounted) return;
-    setState(() {
-      _sales = sales;
-      _stats = stats;
-      _loading = false;
-    });
-  }
-
-  Future<void> _pickDate(bool isStart) async {
+  Future<void> _pickDate(BuildContext context, bool isStart) async {
+    final sales = context.read<SalesProvider>();
     final picked = await showDatePicker(
       context: context,
-      initialDate: isStart ? _startDate : _endDate,
+      initialDate: isStart ? sales.start : sales.end,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
     if (picked == null) return;
-    setState(() {
-      if (isStart) {
-        _startDate = DateTime(picked.year, picked.month, picked.day);
-      } else {
-        _endDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
-      }
-    });
-    _loadData();
+    final start = isStart ? picked : sales.start;
+    final end = isStart ? sales.end : picked;
+    await sales.setRange(start, end);
   }
 
   @override
   Widget build(BuildContext context) {
+    final sales = context.watch<SalesProvider>();
     return Scaffold(
       appBar: AppBar(title: Text('salesHistory'.tr())),
       body: Column(
@@ -75,8 +41,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text(_formatDate(_startDate)),
-                    onPressed: () => _pickDate(true),
+                    label: Text(_formatDate(sales.start)),
+                    onPressed: () => _pickDate(context, true),
                   ),
                 ),
                 const Padding(
@@ -86,8 +52,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text(_formatDate(_endDate)),
-                    onPressed: () => _pickDate(false),
+                    label: Text(_formatDate(sales.end)),
+                    onPressed: () => _pickDate(context, false),
                   ),
                 ),
               ],
@@ -103,15 +69,15 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               children: [
                 _StatItem(
                   label: 'totalRevenue'.tr(),
-                  value: formatMoney(_stats['totalRevenueCents'] ?? 0),
+                  value: formatMoney(sales.stats['totalRevenueCents'] ?? 0),
                 ),
                 _StatItem(
                   label: 'salesCount'.tr(),
-                  value: '${_stats['saleCount'] ?? 0}',
+                  value: '${sales.stats['saleCount'] ?? 0}',
                 ),
                 _StatItem(
                   label: 'itemsSold'.tr(),
-                  value: '${_stats['totalItems'] ?? 0}',
+                  value: '${sales.stats['totalItems'] ?? 0}',
                 ),
               ],
             ),
@@ -119,15 +85,15 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           const SizedBox(height: 4),
           // Sales list
           Expanded(
-            child: _loading
+            child: sales.loading
                 ? const Center(child: CircularProgressIndicator())
-                : _sales.isEmpty
+                : sales.sales.isEmpty
                     ? Center(child: Text('noSalesInPeriod'.tr()))
                     : ListView.separated(
-                        itemCount: _sales.length,
+                        itemCount: sales.sales.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (_, i) {
-                          final sale = _sales[i];
+                          final sale = sales.sales[i];
                           return ListTile(
                             leading: CircleAvatar(
                               child: Text('${sale.itemCount}'),
