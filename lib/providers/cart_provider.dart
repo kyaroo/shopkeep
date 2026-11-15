@@ -4,6 +4,7 @@ import '../models/cart.dart';
 import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../data/product_lookup.dart';
+import '../build_config.dart';
 
 class CartProvider with ChangeNotifier {
   final String shopKey;
@@ -56,8 +57,13 @@ class CartProvider with ChangeNotifier {
 
   /// Looks up an unknown barcode via Open Food Facts (after a local miss).
   /// Returns null if not found or the network is unavailable.
+  ///
+  /// Admin-only: the shopkeeper flavor must stay 100% offline, so it never
+  /// reaches an external barcode DB — not even on a local-catalog miss.
+  /// `kIsAdmin` is a build-time const, so a shopkeeper release build
+  /// tree-shakes [ProductLookup] and its sources out entirely.
   Future<ProductLookupResult?> lookupProduct(String barcode) =>
-      ProductLookup().fetch(barcode);
+      kIsAdmin ? ProductLookup().fetch(barcode) : Future.value(null);
 
   void addToCart(Product product, {int qty = 1}) {
     _cart.add(product, qty: qty);

@@ -84,7 +84,11 @@ class MyhanoutApp extends StatelessWidget {
             create: (_) => CartProvider(shopKey, businessName: businessName),
           ),
           ChangeNotifierProvider(
-            create: (_) => CatalogProvider()..loadSyncConfig(),
+            // The shopkeeper flavor never builds a sync client: no server
+            // URL/token, no catalog sync surface.
+            create: (_) => kIsAdmin
+                ? (CatalogProvider()..loadSyncConfig())
+                : CatalogProvider(),
           ),
         ],
         child: const LocalizedApp(),

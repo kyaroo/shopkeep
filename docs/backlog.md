@@ -24,7 +24,8 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 | CAT8 manifest intent filter (both flavors) + receive | ✅ |
 | S1/S2/S3 + 418-product scale test | ✅ 418/418, 0 missing, 0 size mismatches |
 | **S4 + S5** | ✅ base-version guard (stale delta rejected whole, version advances) + display-only refresh proof (74/74 tests) |
-| **CAT2 install-time seed** | ✅ asset **60 MB** (14,669 / 13,125 photos); fresh install verified on device; debug 261 MB · release-arm64 **84.7 MB** |
+| **A1–A3 + V2** | ✅ offline isolation: lookups/join/sync gated; release shopkeeper APK grep-clean |
+| **CAT2 install-time seed** | ✅ asset **60 MB** (14,669 / 13,125 photos); fresh install verified on device; debug 261 MB · release-arm64 **84.5 MB** |
 
 ## Open — app
 | ID | Item | Est. | Deps |
@@ -43,7 +44,10 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 ## Open — offline isolation + join
 | ID | Item | Est. |
 |---|---|---|
-| A1–A3 | Gate OFF/UPCitemdb to admin; drop the join server call; strip sync surface | 4h |
+| A1 | Gate OFF/UPCitemdb lookups to admin (`CartProvider.lookupProduct`) | ✅ 1h |
+| A2 | Drop the join server call (`getShop`) — manual join accepts locally | ✅ 1h |
+| A3 | No sync client in the shopkeeper build (`loadSyncConfig` gated) | ✅ 0.5h |
+| V2 | Static proof: release shopkeeper APK has **0** hits for openfoodfacts / upcitemdb / mymemory / catalog.myhanout.ma (control strings present) | ✅ 0.5h |
 | B5,B4 | Per-shop `shop_id` + `qr_ttl`; QR v2 (shop-scoped, per-shop lifetime) | 6h |
 | B1,B3,B2,B6 | Listing bundle export/import + upsert + join rework | 18h |
 | V1,V2 | Airplane-mode run + APK grep proof | 2h |

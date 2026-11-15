@@ -3,8 +3,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../data/config.dart';
 import '../data/shop_provisioning_service.dart';
-import '../data/sync_config.dart';
-import '../data/catalog_sync_client.dart';
 import '../build_config.dart';
 import '../app_state.dart';
 import '../utils/slug.dart';
@@ -91,45 +89,17 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
       return;
     }
 
-    // End-user: validate against server registry.
-    try {
-      final client = await SyncConfig.defaultClient();
-      final name = await client.getShop(code);
-      client.close();
-      if (name == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('invalidShopCode'.tr())),
-          );
-        }
-        setState(() => _loading = false);
-        return;
-      }
-      await Config.setCurrentShopKey(code);
-      await Config.saveBusinessName(name);
-      if (!mounted) return;
-      context.read<AppState>().shopKey = code;
-      context.read<AppState>().businessName = name;
-    } on SyncAuthException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('authFailed'.tr())),
-        );
-      }
-    } on SyncException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('serverError'.tr())),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('serverUnreachable'.tr())),
-        );
-      }
-    }
-    if (mounted) setState(() => _loading = false);
+    // End-user: offline join. No server-registry call — the typed code is
+    // accepted locally and binds this install to the shop. The QR path is the
+    // real provisioning (it carries the business name); a typed code leaves the
+    // stored name untouched, editable later in Settings.
+    await Config.setCurrentShopKey(code);
+    final name = await Config.getBusinessName();
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    app.shopKey = code;
+    app.businessName = name;
+    setState(() => _loading = false);
   }
 
   Future<void> _addShop() async {
