@@ -3,7 +3,7 @@
 /// The external boundary [CatalogRepository] is faked with [MockCatalogRepository]
 /// (mocktail). No SQLite, no network — the provider's own logic (loading, saving,
 /// deleting, counting) is tested end-to-end.
-library catalog_provider_test;
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';

@@ -10,7 +10,7 @@ void main() {
   });
 
   test('products table has low_stock_threshold column', () async {
-    final shopKey = 'test-shop';
+    const shopKey = 'test-shop';
     final db = await Db.open(shopKey);
     await db.database;
     final cols = await db.rawQuery('PRAGMA table_info(products)');
@@ -19,7 +19,7 @@ void main() {
   });
 
   test('insert/read preserves threshold', () async {
-    final shopKey = 'test-shop-2';
+    const shopKey = 'test-shop-2';
     final db = await Db.open(shopKey);
     final id = await db.insertProduct(
       shopKey,

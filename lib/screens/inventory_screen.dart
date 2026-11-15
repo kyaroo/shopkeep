@@ -218,7 +218,7 @@ class _InventoryBodyState extends State<InventoryBody> {
                       controller: _scroll,
                       itemCount:
                           products.length + (cart.loadingMoreProducts ? 1 : 0),
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) {
                         if (i >= products.length) {
                           return const Padding(

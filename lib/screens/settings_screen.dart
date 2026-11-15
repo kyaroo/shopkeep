@@ -182,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('exportFailed'.tr() + ' ' + e.toString())),
+          SnackBar(content: Text('${'exportFailed'.tr()} $e')),
         );
       }
     }
@@ -207,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('importFailed'.tr() + ' ' + e.toString())),
+          SnackBar(content: Text('${'importFailed'.tr()} $e')),
         );
       }
     }
@@ -322,7 +322,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final isCurrent = key == _currentShopKey;
                       return ListTile(
                         title: Text(key),
-                        subtitle: Text(isCurrent ? 'currentShop'.tr() : 'shopKey'.tr() + ': ' + key),
+                        subtitle: Text(isCurrent ? 'currentShop'.tr() : '${'shopKey'.tr()}: $key'),
                         trailing: PopupMenuButton<String>(
                           onSelected: (v) {
                             if (v == 'use') _useShop(key);

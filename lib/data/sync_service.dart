@@ -45,7 +45,7 @@ class SyncService extends ChangeNotifier {
     required SyncConfig config,
     required List<CatalogEntry> entries,
   }) async {
-    if (config == null || !config.isConfigured) {
+    if (!config.isConfigured) {
       _syncMessage = 'Sync not configured. Set the server URL and token first.';
       notifyListeners();
       return false;

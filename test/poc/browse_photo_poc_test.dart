@@ -2,9 +2,8 @@
 /// not just network image_url thumbnails.
 ///
 /// Run: flutter test test/poc/browse_photo_poc_test.dart
-library browse_photo_poc_test;
+library;
 
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';

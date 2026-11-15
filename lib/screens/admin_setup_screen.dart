@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -8,10 +6,9 @@ import '../build_config.dart';
 import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../utils/slug.dart';
-import '../data/provisioning.dart';
+import '../utils/app_log.dart';
 import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
-import '../data/catalog_sync_client.dart';
 import 'catalog_home_page.dart';
 import 'catalog_push_screen.dart';
 
@@ -116,7 +113,10 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                 final client = await SyncConfig.defaultClient();
                 await client.deleteShop(key);
                 client.close();
-              } catch (_) {}
+              } catch (e) {
+                logWarning('server shop deletion failed (local copy removed)',
+                    error: e);
+              }
               await _settings.removeShop(key);
               await _settings.removeShopBusinessName(key);
               if (mounted) Navigator.pop(context);
@@ -188,7 +188,7 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                           ..._shopKeys.map((key) {
                             return ListTile(
                               title: Text(key),
-                              subtitle: Text('shopKey'.tr() + ': ' + key),
+                              subtitle: Text('${'shopKey'.tr()}: $key'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

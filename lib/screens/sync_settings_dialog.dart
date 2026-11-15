@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/catalog_provider.dart';
 import '../data/sync_config.dart';
 import '../theme.dart';
+import '../utils/app_log.dart';
 
 /// Lets the owner set the sync server URL + token. Fully optional — the app
 /// works offline without it. Sync stays manual ("Sync now"), never automatic.
@@ -49,8 +50,8 @@ class _SyncSettingsDialogState extends State<SyncSettingsDialog> {
       final open = await client.getCatalogOpen();
       client.close();
       if (mounted) setState(() => _catalogOpen = open);
-    } catch (_) {
-      // ignore; keep default
+    } catch (e) {
+      logWarning('catalog open-state fetch failed', error: e);
     } finally {
       if (mounted) setState(() => _loadingOpen = false);
     }

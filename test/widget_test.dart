@@ -33,7 +33,7 @@ void main() {
           // real SharedPreferences-backed store (mocked in setUpAll).
           Provider<SettingsService>.value(value: const ConfigSettingsService()),
         ],
-        child: MyhanoutApp(shopKey: 'default', settings: const ConfigSettingsService()),
+        child: const MyhanoutApp(shopKey: 'default', settings: ConfigSettingsService()),
       ),
     );
     await settle(tester);

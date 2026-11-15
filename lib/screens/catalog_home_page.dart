@@ -140,17 +140,17 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
               if (value == 'settings') _openSyncSettings();
             },
             itemBuilder: (_) => [
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 value: 'browse',
-                child: Row(children: const [
+                child: Row(children: [
                   Icon(Icons.travel_explore),
                   SizedBox(width: 8),
                   Text('Browse catalog'),
                 ]),
               ),
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 value: 'sync',
-                child: Row(children: const [
+                child: Row(children: [
                   Icon(Icons.cloud_upload_outlined),
                   SizedBox(width: 8),
                   Text('Sync now'),
@@ -174,10 +174,10 @@ class _CatalogHomePageState extends State<CatalogHomePage> {
             padding: const EdgeInsets.all(12),
             child: TextField(
               controller: _search,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Search by name, barcode or category',
-                prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
             ),
           ),

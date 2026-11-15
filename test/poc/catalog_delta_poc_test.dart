@@ -7,7 +7,7 @@
 /// may apply any validly signed delta.
 ///
 /// Run: flutter test test/poc/catalog_delta_poc_test.dart
-library catalog_delta_poc_test;
+library;
 
 import 'dart:convert';
 import 'dart:io';

@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
 
 import '../models/product.dart';
 import '../models/sale.dart';
@@ -98,7 +96,7 @@ Catalog readCatalog(File file) {
 /// Writes a [Catalog] to a file as indented JSON.
 void writeCatalog(Catalog catalog, File file) {
   final text =
-      const JsonEncoder.withIndent('  ').convert(catalog.toMap()) + '\n';
+      '${const JsonEncoder.withIndent('  ').convert(catalog.toMap())}\n';
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(text);
 }
@@ -164,8 +162,8 @@ Future<String> catalogToJson(String shopKey) async {
           'version': 1,
           'exported_at': DateTime.now().millisecondsSinceEpoch,
           'shop_key': shopKey,
-          'products': (await products).map((p) => p.toMap()).toList(),
-          'sales': (await sales).map((s) => s.toMap()).toList(),
+          'products': (products).map((p) => p.toMap()).toList(),
+          'sales': (sales).map((s) => s.toMap()).toList(),
           'sale_items': saleItems,
           'audit_log': auditLog,
         },
@@ -242,7 +240,7 @@ Future<ImportResult> importCatalogJson(String shopKey, String json) async {
         );
       }
     });
-    result = ImportResult(inserted: 0, skipped: 0);
+    result = const ImportResult(inserted: 0, skipped: 0);
   } on FormatException {
     return const ImportResult(inserted: 0, skipped: 0, error: 'Invalid JSON format');
   } on CatalogFormatException {

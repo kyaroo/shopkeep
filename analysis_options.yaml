@@ -2,11 +2,10 @@
 # check for errors, warnings, and lints.
 #
 # The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# IDEs (https://dart.dev/tools#ides-and-ide) and can also be produced on the
+# command line by running `flutter analyze`.
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
+# Base set for Flutter apps.
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
@@ -20,19 +19,27 @@ analyzer:
     - linux/**
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
+  # Project rules on top of `flutter_lints`.
   #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
+  # The baseline is "zero analyzer output", not "zero errors": `flutter analyze`
+  # exits non-zero only on errors, so warnings and infos accumulate silently.
+  # Every rule below was enabled only after the codebase passed it — keep it
+  # that way (a new violation is a build failure, not a review comment).
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Use the dedicated widget instead of a bare `Container` (see the
+    # flutter-best-practices rule set): `Container` has no const constructor,
+    # `SizedBox`/`ColoredBox` express intent.
+    - sized_box_for_whitespace
+    - use_colored_box
+    # Local style: const where possible, final for never-reassigned locals.
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_locals
+    # `late` is for "initialised later by someone else"; a field with an
+    # initializer at its declaration does not need it.
+    - unnecessary_late
+    # `part of` must quote the library name.
+    - use_string_in_part_of_directives
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

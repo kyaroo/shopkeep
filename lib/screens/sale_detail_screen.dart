@@ -40,7 +40,7 @@ class SaleDetailScreen extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               itemCount: sale.items.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final item = sale.items[i];
                 return Padding(

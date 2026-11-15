@@ -3,7 +3,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 
 import '../data/settings_service.dart';
-import '../theme.dart';
 
 /// Shop picker: list all known shops, switch active shop, or open settings/admin.
 class ShopPickerScreen extends StatefulWidget {
@@ -56,7 +55,7 @@ class _ShopPickerScreenState extends State<ShopPickerScreen> {
                     ..._shopKeys.map((key) {
                       return ListTile(
                         title: Text(key),
-                        subtitle: Text('shopKey'.tr() + ': ' + key),
+                        subtitle: Text('${'shopKey'.tr()}: $key'),
                         trailing: const Icon(Icons.arrow_forward_ios),
                         onTap: () {
                           _settings.setCurrentShopKey(key);

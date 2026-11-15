@@ -1,13 +1,14 @@
 library;
 
 /// Mandatory mutation audit. Runs after every data change; JSON blobs are
-/// TEXT columns. Defensively encodes — any encoding failure is printed and
-/// swallowed so audit never blocks the business flow.
+/// TEXT columns. Defensively encodes — any failure is logged and swallowed so
+/// audit never blocks the business flow.
 ///
 /// Every data mutation in Db logs a row: action, table, record_id,
 /// old_values/new_values, changed_at, changed_by.
 import 'dart:convert';
 
+import '../utils/app_log.dart';
 import 'db.dart';
 
 class Audit {
@@ -34,7 +35,7 @@ class Audit {
         ],
       );
     } catch (e) {
-      print('[audit] FAILED: $e');
+      logWarning('audit log write failed', error: e);
       return 0;
     }
   }

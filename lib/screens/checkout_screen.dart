@@ -6,6 +6,7 @@ import '../models/product.dart';
 import '../models/product_lookup_result.dart';
 import '../utils/money.dart';
 import '../theme.dart';
+import '../utils/app_log.dart';
 import 'scan_page.dart';
 
 /// Top-level entry used by the HomePage FAB. Scans a barcode, adds to cart
@@ -64,7 +65,7 @@ class CheckoutBody extends StatelessWidget {
                 )
               : ListView.separated(
                   itemCount: cart.lines.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (_, i) {
                     final line = cart.lines[i];
                     final p = line.product;
@@ -226,6 +227,7 @@ class CheckoutBody extends StatelessWidget {
                               );
                             }
                           } catch (e) {
+                            logWarning('sale failed', error: e);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

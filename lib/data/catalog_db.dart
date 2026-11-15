@@ -94,7 +94,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
       where = 'WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? OR name_ar LIKE ?';
       args = ['%$search%', '%$search%', '%$search%', '%$search%'];
     }
-    String sql = 'SELECT * FROM products ${where} ORDER BY updated_at DESC';
+    String sql = 'SELECT * FROM products $where ORDER BY updated_at DESC';
     if (limit != null) {
       sql += ' LIMIT ?';
       args.add(limit);
@@ -136,6 +136,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
   }
 
   /// Entries changed since [sinceMs] (exclusive) — the sync delta.
+  @override
   Future<List<CatalogEntry>> changedSince(int sinceMs) async {
     final db = await _database;
     final rows = await db.query(
@@ -148,6 +149,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
   }
 
   /// Pending tombstones not yet synced.
+  @override
   Future<List<String>> pendingDeletes() async {
     final db = await _database;
     final rows = await db.query('pending_deletes');
@@ -155,6 +157,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
   }
 
   /// Clear a tombstone after a successful sync.
+  @override
   Future<void> clearPendingDelete(String barcode) async {
     final db = await _database;
     await db.delete('pending_deletes',

@@ -16,7 +16,7 @@ const supportedLocales = [
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
-  runApp(AdminSetupApp());
+  runApp(const AdminSetupApp());
 }
 
 class AdminSetupApp extends StatelessWidget {
@@ -43,7 +43,7 @@ class AdminSetupApp extends StatelessWidget {
 }
 
 class _AdminLocalizedApp extends StatelessWidget {
-  const _AdminLocalizedApp({super.key});
+  const _AdminLocalizedApp();
 
   @override
   Widget build(BuildContext context) {

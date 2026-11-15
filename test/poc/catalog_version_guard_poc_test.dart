@@ -5,7 +5,7 @@
 /// an accepted delta advances the version.
 ///
 /// Run: flutter test test/poc/catalog_version_guard_poc_test.dart
-library catalog_version_guard_poc_test;
+library;
 
 import 'dart:typed_data';
 

@@ -1,35 +1,21 @@
 /// Unit tests for [SyncService] — the sync controller.
 ///
 /// All external boundaries are faked:
-///   - [MockCatalogDeltaRepository]  — repository delta methods
-///   - [TestSyncConfig]              — sync config holder
-///   - [TestSyncClient]              — network client (no HTTP)
+///   - [FakeDeltaRepository]  — repository delta methods
+///   - [TestSyncConfig]       — sync config holder
+///   - [TestSyncClient]       — network client (no HTTP)
 ///
 /// These tests verify the sync lifecycle: not-configured → configured-and-success
 /// → auth-failed → server-error → generic-error, and that the watermark is
 /// advanced and tombstones cleared only on success.
-library sync_service_test;
+library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:myhanout/data/catalog_sync_client.dart';
 import 'package:myhanout/data/sync_service.dart';
-import 'package:myhanout/data/sync_config.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 import '../helpers/mock_providers.dart';
-
-/// Build a [SyncService] wired to test doubles.
-SyncService makeSyncService({CatalogDeltaRepository? repo, SyncConfig? config}) {
-  final repoMock = repo ?? MockCatalogDeltaRepository();
-  final configMock = config ?? TestSyncConfig(
-    TestSyncClient(pushResponse: SyncResult(accepted: 0, rejected: const [], serverNow: 0, newerOnServer: const [])),
-    'https://example.com',
-    'test-token',
-    SyncResult(accepted: 0, rejected: const [], serverNow: 0, newerOnServer: const []),
-  );
-  return SyncService();
-}
 
 void main() {
   group('SyncService', () {

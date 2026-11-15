@@ -8,6 +8,7 @@ import '../models/product.dart';
 import '../providers/cart_provider.dart';
 import '../providers/catalog_provider.dart';
 import '../theme.dart';
+import '../utils/app_log.dart';
 import '../utils/money.dart';
 import 'scan_page.dart';
 
@@ -83,7 +84,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         });
         return true;
       }
-    } catch (_) {}
+    } catch (e) {
+      logWarning('local catalog lookup failed', error: e);
+    }
     return false;
   }
 
@@ -167,7 +170,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                         height: 72,
                         fit: BoxFit.cover,
                         cacheWidth: 216,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             const Icon(Icons.broken_image, size: 40),
                       ),
                     ),
@@ -197,7 +200,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text('autoFilledHint'.tr(),
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 12,
                             color: AppPalette.amberOnSurface)),
                   ),
@@ -255,24 +258,30 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         if (widget.existing != null)
           TextButton(
             onPressed: () async {
+              // Capture before the await: no BuildContext across the gap.
+              final cart = Provider.of<CartProvider>(context, listen: false);
+              final navigator = Navigator.of(context);
               final ok = await showDialog<bool>(
                 context: context,
-                builder: (_) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: Text('deleteProduct'.tr()),
                   content: Text('removeConfirm'.tr(namedArgs: {'name': widget.existing!.name})),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: Text('cancel'.tr())),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: Text('delete'.tr(),
+                          style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
                     ),
                   ],
                 ),
               );
-              if (ok == true && mounted) {
-                await Provider.of<CartProvider>(context, listen: false).deleteProduct(widget.existing!.id!);
-                if (mounted) Navigator.pop(context);
-              }
+              if (ok != true || !mounted) return;
+              await cart.deleteProduct(widget.existing!.id!);
+              if (!mounted) return;
+              navigator.pop();
             },
             child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),

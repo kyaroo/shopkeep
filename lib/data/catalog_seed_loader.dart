@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../utils/app_log.dart';
 import 'config.dart';
 
 /// Best-effort copy of the bundled `assets/catalog_seed.db` to [dbPath] on
@@ -30,7 +31,8 @@ class CatalogSeedLoader {
     try {
       final data = await rootBundle.load(assetPath);
       bytes = data.buffer.asUint8List();
-    } catch (_) {
+    } catch (e) {
+      logWarning('catalog seed asset failed to load', error: e);
       return false;
     }
     if (bytes.isEmpty) return false;
@@ -54,7 +56,9 @@ class CatalogSeedLoader {
       // against it (base-version guard).
       try {
         await Config.setCatalogVersion(seedCatalogVersion);
-      } catch (_) {}
+      } catch (e) {
+        logWarning('catalog seed version not recorded', error: e);
+      }
       return true;
     } catch (_) {
       await _safeDelete(tmp);

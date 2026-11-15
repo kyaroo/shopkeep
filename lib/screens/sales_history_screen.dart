@@ -91,7 +91,7 @@ class SalesHistoryScreen extends StatelessWidget {
                     ? Center(child: Text('noSalesInPeriod'.tr()))
                     : ListView.separated(
                         itemCount: sales.sales.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (_, i) {
                           final sale = sales.sales[i];
                           return ListTile(

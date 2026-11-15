@@ -2,7 +2,6 @@ import 'package:flutter/services.dart';
 
 import 'catalog_delta.dart';
 import 'catalog_db.dart';
-import 'config.dart';
 import 'db.dart';
 import 'settings_service.dart';
 

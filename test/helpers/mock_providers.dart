@@ -14,7 +14,7 @@
 ///   final repo = MockCatalogRepository();
 ///   when(() => repo.get('A')).thenAnswer((_) => Future.value(entry));
 ///   when(() => repo.all()).thenAnswer((_) => Future.value(entries));
-library test_helpers.mock_providers;
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +25,6 @@ import 'package:myhanout/models/catalog_entry.dart';
 import 'package:myhanout/data/config.dart';
 import 'package:myhanout/data/sync_config.dart';
 import 'package:myhanout/data/catalog_sync_client.dart';
-import 'package:myhanout/data/catalog_db.dart';
 
 /// A mutable state holder for tests. Mirrors [AppState] so tests can feed
 /// shop/business-name changes and observe [notifyListeners] without going
@@ -129,10 +128,10 @@ class TestSyncClient extends CatalogSyncClient {
   TestSyncClient({
     required this.pushResponse,
     this.pushFn,
-    String baseUrl = 'https://example.com',
-    String token = 'test-token',
-    String deviceId = 'test-device',
-  }) : super(baseUrl: baseUrl, token: token, deviceId: deviceId);
+    super.baseUrl = 'https://example.com',
+    super.token = 'test-token',
+    super.deviceId = 'test-device',
+  });
 
   final SyncResult pushResponse;
   final Future<SyncResult> Function({

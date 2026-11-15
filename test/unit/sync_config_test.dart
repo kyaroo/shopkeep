@@ -2,13 +2,12 @@
 ///
 /// These tests verify the basic configuration surface: defaults, isConfigured
 /// flag, and client() factory. No network or SQLite is touched.
-library sync_config_test;
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myhanout/data/sync_config.dart';
 import 'package:myhanout/data/catalog_sync_client.dart';
 
-import '../helpers/mock_providers.dart';
 
 void main() {
   group('SyncConfig', () {

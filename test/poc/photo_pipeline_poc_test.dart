@@ -5,7 +5,7 @@
 ///   OFF image  →  processPhoto()  →  SQLite BLOB  →  Image.memory  →  base64 JSON
 ///
 /// Run: flutter test test/poc/photo_pipeline_poc_test.dart
-library photo_pipeline_poc_test;
+library;
 
 import 'dart:convert';
 import 'dart:io';

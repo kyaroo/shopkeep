@@ -34,7 +34,7 @@ void main() {
     await _cleanUp();
   });
 
-  Future<void> _seed(int count) async {
+  Future<void> seed(int count) async {
     final db = await Db.open(_shop);
     for (var i = 0; i < count; i++) {
       await db.insertProduct(
@@ -50,13 +50,13 @@ void main() {
   }
 
   test('countProducts counts every row, not just the loaded page', () async {
-    await _seed(120);
+    await seed(120);
     final db = await Db.open(_shop);
     expect(await db.countProducts(_shop), 120);
   });
 
   test('getProducts pages with limit/offset', () async {
-    await _seed(120);
+    await seed(120);
     final db = await Db.open(_shop);
 
     final first = await db.getProducts(_shop, limit: 50);
@@ -75,13 +75,13 @@ void main() {
   });
 
   test('no limit keeps the legacy full-list behaviour', () async {
-    await _seed(120);
+    await seed(120);
     final db = await Db.open(_shop);
     expect(await db.getProducts(_shop), hasLength(120));
   });
 
   test('search narrows both the page and the count', () async {
-    await _seed(5);
+    await seed(5);
     final db = await Db.open(_shop);
     await db.insertProduct(_shop,
         Product(name: 'Couscous', barcode: 'c1', priceCents: 100, stockQty: 1));

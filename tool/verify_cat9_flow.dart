@@ -10,6 +10,11 @@
 /// Run: dart run tool/verify_cat9_flow.dart
 library;
 
+// ignore_for_file: avoid_print
+// Justification: this is a host-side verification script — its stdout IS the
+// report a human reads to confirm the CAT9 flow. There is no UI and no logging
+// framework to send it to. Do NOT add this ignore to lib/ or test/.
+
 import 'dart:convert';
 import 'dart:io';
 

@@ -14,7 +14,7 @@ class CartProvider with ChangeNotifier {
   bool _loadingMoreProducts = false;
   int _totalProducts = 0;
   String _lastSearch = '';
-  String _businessName = 'Maison du Marché';
+  final String _businessName;
 
   /// Rows per inventory page. The shop's own listing is normally small, but a
   /// large import must not load unbounded into memory.
@@ -34,7 +34,7 @@ class CartProvider with ChangeNotifier {
   String get businessName => _businessName;
 
   CartProvider(this.shopKey, {String? businessName})
-      : _businessName = businessName ??= 'Maison du Marché' {
+      : _businessName = businessName ?? 'Maison du Marché' {
     loadProducts();
   }
 

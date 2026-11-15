@@ -260,7 +260,7 @@ class Db {
 
   Future<List<Product>> getProducts(String shopKey,
       {String? search, int? limit, int? offset}) async {
-    final db = await _db;
+    final db = _db;
     final where = search != null && search.isNotEmpty
         ? "WHERE name LIKE ? OR barcode LIKE ?"
         : null;
@@ -280,7 +280,7 @@ class Db {
   /// Total rows matching [search] — lets the UI show a real count while only
   /// loading a page at a time.
   Future<int> countProducts(String shopKey, {String? search}) async {
-    final db = await _db;
+    final db = _db;
     final where = search != null && search.isNotEmpty
         ? "WHERE name LIKE ? OR barcode LIKE ?"
         : null;
@@ -293,7 +293,7 @@ class Db {
   }
 
   Future<Product?> getByBarcode(String shopKey, String barcode) async {
-    final db = await _db;
+    final db = _db;
     final rows = await db!.query(
         'products', where: 'barcode = ?', whereArgs: [barcode]);
     if (rows.isEmpty) return null;
@@ -389,7 +389,7 @@ class Db {
   // ---- Sales ----
 
   Future<int> insertSale(String shopKey, int totalCents, List<Map<String, Object?>> items) async {
-    final db = await _db;
+    final db = _db;
     return db!.transaction((txn) async {
       final saleId = await txn.insert('sales', {
         'created_at': DateTime.now().millisecondsSinceEpoch,
@@ -410,7 +410,7 @@ class Db {
   }
 
   Future<List<Sale>> getSales(String shopKey, {required int startMs, required int endMs}) async {
-    final db = await _db;
+    final db = _db;
     final rows = await db!.query(
       'sales',
       where: 'created_at >= ? AND created_at <= ?',
@@ -434,7 +434,7 @@ class Db {
   }
 
   Future<Map<String, int>> getSalesStats(String shopKey, {required int startMs, required int endMs}) async {
-    final db = await _db;
+    final db = _db;
     final row = await db!.rawQuery(
       'SELECT COALESCE(SUM(total_cents),0) AS revenue, '
       'COALESCE(SUM(item_count),0) AS items, '
@@ -453,12 +453,12 @@ class Db {
   // ---- helpers ----
 
   Future<int> insert(String table, Map<String, Object?> row) async {
-    final db = await _db;
+    final db = _db;
     return db!.insert(table, row);
   }
 
   Future<int> delete(String table, String where, List<Object?> whereArgs) async {
-    final db = await _db;
+    final db = _db;
     return db!.delete(table, where: where, whereArgs: whereArgs);
   }
 
@@ -466,12 +466,12 @@ class Db {
   /// its exact parameter types to avoid the `Db.query` instance method
   /// conflicting with the [Database.query] extension.
   Future<List<Map<String, Object?>>> rawQuery(String sql, [List<Object?>? arguments]) async {
-    final db = await _db;
+    final db = _db;
     return db!.rawQuery(sql, arguments);
   }
 
   Future<void> transaction(Future<void> Function(Transaction txn) action) async {
-    final db = await _db;
+    final db = _db;
     await db!.transaction(action);
   }
 }

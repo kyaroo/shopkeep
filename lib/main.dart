@@ -34,7 +34,7 @@ void main() async {
   // Bootstrap the settings seam once. `Config` is still the static store (it
   // must be readable before any widget exists); everything above this point
   // receives [settings] by injection instead.
-  final settings = const ConfigSettingsService();
+  const settings = ConfigSettingsService();
 
   // Source of truth for the active shop + business name. Previously these two
   // `ValueNotifier`s lived at package scope (`app_state.dart`), which made them a
@@ -58,7 +58,7 @@ void main() async {
 
   final shopList = await settings.getShopList();
   if (shopList.isEmpty) {
-    runApp(AdminSetupApp(settings: settings));
+    runApp(const AdminSetupApp(settings: settings));
     return;
   }
   // If a shop was left active, open it.
@@ -71,7 +71,7 @@ void main() async {
     return;
   }
   // Otherwise → first-run onboarding.
-  runApp(AdminSetupApp(settings: settings));
+  runApp(const AdminSetupApp(settings: settings));
 }
 class MyhanoutApp extends StatelessWidget {
     final String shopKey;
@@ -287,8 +287,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final cart = Provider.of<CartProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text('appName'.tr()),
@@ -311,7 +309,7 @@ class _HomePageState extends State<HomePage> {
           const CheckoutBody(),
           const InventoryBody(),
           Consumer<AppState>(
-            builder: (_context, appState, __) => ChangeNotifierProvider(
+            builder: (context, appState, _) => ChangeNotifierProvider(
               create: (_) => SalesProvider(appState.shopKey),
               child: const SalesHistoryScreen(),
             ),

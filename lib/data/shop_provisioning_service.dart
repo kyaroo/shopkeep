@@ -1,5 +1,5 @@
-import '../data/config.dart';
 import '../data/provisioning.dart';
+import '../utils/app_log.dart';
 import '../data/settings_service.dart';
 import '../data/sync_config.dart';
 import '../data/catalog_sync_client.dart';
@@ -46,8 +46,9 @@ class ShopProvisioningService {
         final client = await (clientFactory ?? SyncConfig.defaultClient)();
         await client.registerShop(finalKey, name);
         client.close();
-      } catch (_) {
+      } catch (e) {
         // Server may be unreachable; local shop still created.
+        logWarning('shop registration on server failed', error: e);
       }
     }
     return finalKey;

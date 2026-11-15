@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/app_log.dart';
+
 /// Application configuration persistence layer.
 ///
 /// Shared by both APKs (admin + shop). On Android, each APK has its own
@@ -142,7 +144,8 @@ class Config {
       final decoded = jsonDecode(raw) as Map<String, dynamic>;
       _cachedShopNames = decoded.map((k, v) => MapEntry(k, v.toString()));
       return Map<String, String>.from(_cachedShopNames!);
-    } catch (_) {
+    } catch (e) {
+      logWarning('shop names corrupt — reset', error: e);
       _cachedShopNames = {};
       return {};
     }

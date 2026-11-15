@@ -120,7 +120,7 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     });
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('addShop'.tr()),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -144,28 +144,33 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('cancel'.tr())),
           TextButton(
             onPressed: () async {
               final name = nameController.text.trim();
               final keyInput = keyController.text.trim();
               if (name.isEmpty) return;
+              // Capture the ambassadors before the await: using a BuildContext
+              // across the gap is a crash if this State is disposed meanwhile.
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 await ShopProvisioningService.createShop(
                   name: name,
                   key: keyInput.isEmpty ? null : keyInput,
                   settings: _settings,
                 );
-                if (context.mounted) Navigator.pop(context, true);
+                if (mounted) navigator.pop(true);
               } catch (e) {
-                if (context.mounted) {
-                  final msg = e is DuplicateShopKeyException
-                      ? 'shopKeyDuplicate'.tr()
-                      : 'shopKeyRequired'.tr();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(msg)),
-                  );
-                }
+                if (!mounted) return;
+                final msg = e is DuplicateShopKeyException
+                    ? 'shopKeyDuplicate'.tr()
+                    : 'shopKeyRequired'.tr();
+                messenger.showSnackBar(
+                  SnackBar(content: Text(msg)),
+                );
               }
             },
             child: Text('createShop'.tr()),
