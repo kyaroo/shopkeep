@@ -1,5 +1,9 @@
 # myhanout — Backlog & prochains pas (CAT9)
 
+> **SUPERSEDED 2026-11-15** — the CAT9 phases below are all delivered. Current
+> state lives in `docs/backlog.md`. Kept for history only; do not edit.
+
+
 Réconcilié 2026-11-15 (session de reprise). Vérifications réelles exécutées,
 pas reprises du handoff.
 

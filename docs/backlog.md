@@ -1,78 +1,94 @@
-# myhanout — Backlog (parked) & done-log
+# myhanout — Backlog & done-log
 
-Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
+Reconciled **2026-11-15** against real `git` / `flutter` / `curl` output.
+This file is the single source of truth; `backlog-CAT9.md` and
+`next-session-plan.md` are superseded (kept for history only).
+Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 
-## Architecture (locked)
+## Locked architecture
 | Store | Scope | Content |
 |---|---|---|
 | `catalog` | **universal** | barcode, name/ar/en, category, **photo @128px**, `retail_price_cents` |
 | `listing` | **per shop** | barcode, `price_cents`, `stock_qty` |
 
-- Shopkeeper carries the whole catalog locally; **browse UI deliberately KEPT** (testing surface).
-- Updates: **admin → shopkeeper** `.myhanout` delta (HMAC = QR secret; the catalog is universal → **no shop binding**, any device may apply any signed delta).
+- Shopkeeper carries the whole catalog locally; **browse UI deliberately KEPT**
+  on both flavors (testing surface).
+- Updates: **admin → shopkeeper** `.myhanout` delta, HMAC = QR secret. The
+  catalog is universal → **no shop binding**; any device may apply any signed
+  delta.
+- Delivery is a **manual file** (WhatsApp / Android share). Shopkeeper stays
+  **100 % offline** — no HTTP push.
 - Inventory refresh: **display-only, fills gaps**; never price/stock/name.
-- Unknown barcode: capture name + photo at add time, flagged for easy recovery.
+- Unknown barcode: capture name + photo at add time, flagged for recovery.
+- Version = **monotone counter 1, 2, 3…** (seed = 1). The server is the source
+  of truth; the shopkeeper keeps a local copy.
 
-## Done this cycle (was parked / in-flight)
+## Mainline (verified)
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `6e697e5`, pushed to
+  `github.com:kyaroo/shopkeep.git`, 0 ahead, clean.
+  - `flutter analyze` → **No issues found!** (was 74 findings on 2026-11-15)
+  - `flutter test` → **119/119**
+  - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
+  - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
+    contract; paged inventory (50/page); injected `SettingsService`,
+    `CatalogRepository`, `CatalogSyncClientFactory`; `theme.dart` and
+    `inventory_screen.dart` split.
+- **catalog-server** `/home/hermes/perso/barcode-mapper`, `master` = `a90b563`,
+  **no git remote** (local-only by design). `server/app.py` is the whole
+  service. Prod container `barcode-mapper-catalog` recreated 2026-11-15.
+
+## Done — catalog cycle
 | Item | Result |
 |---|---|
-| C1 `products.photo` (DB v5) | ✅ |
-| C3 inventory + form thumbnails | ✅ |
-| C4 display helpers | ✅ |
-| **C5 / CAT1 image sourcing** | ✅ **13,125 photos, 49.5 MB, avg 3.9 KB** (89.5 %; the other 1,544 verified imageless) |
-| CAT5 `.myhanout` format + HMAC | ✅ |
-| CAT8 manifest intent filter (both flavors) + receive | ✅ |
-| S1/S2/S3 + 418-product scale test | ✅ 418/418, 0 missing, 0 size mismatches |
-| **S4 + S5** | ✅ base-version guard (stale delta rejected whole, version advances) + display-only refresh proof (74/74 tests) |
-| **Catalog universal** | ✅ `.myhanout` deltas carry **no shop binding** — any device may apply any signed delta (decision 2026-11-15) |
-| **CAT2 install-time seed** | ✅ asset **60 MB** (14,669 / 13,125 photos); fresh install verified on device; debug 261 MB · release-arm64 **84.5 MB** |
-| **A1–A3 + V2** | ✅ offline isolation: lookups/join/sync gated; release shopkeeper APK grep-clean |
+| CAT1–CAT5 | catalog ingest (OFF primary, UPCitemdb gap-fill): **13,125 photos, 49.5 MB, avg 3.9 KB**; seed 60 MB in the APK; install-time seed device-verified |
+| CAT6 | server `catalog_version` column + `POST /v1/shops/{key}/catalog-version` |
+| CAT7b | shopkeeper records `catalog_version` after apply |
+| CAT8 | `.myhanout` intent filter on both flavors + receive |
+| CAT9 | admin **« Distribution du catalogue »** screen: shop list, version guard, delta → share, push tracking |
+| BUG A | `GET /v1/shops` 500 → fixed (`abb29c6`) |
+| BUG B | prod volume predating CAT6 → container recreated; **round-trip still to verify** (A3) |
+| BUG C | delta photo budget enforced client-side (50 KB) |
+| B4 | QR v2: per-shop TTL (`ttl_seconds` in the signed token), clock-skew guard |
+| CAT3b | `products.source` provenance flag (DB v7) — **backend only, no UI yet** |
+| ARCH-1…5 | screens never open the DB; DI; typed contract; paged inventory; file splits |
+| LINT | 74 → 0 analyzer findings; `lib/utils/app_log.dart` for structured logging |
+| A1 | barcode-mapper Flutter app dropped from the tree (`8c1ace1`, `a90b563`) |
+| Offline isolation | lookups/join/sync gated; release shopkeeper APK grep-clean |
 
 ## Open — app
-| ID | Item | Est. | Deps |
+| ID | Item | Est. | State |
 |---|---|---|---|
-| S4 | `Config.catalog_version` + base-version guard (reject stale deltas) | ✅ 2h (S) | — |
-| S5 | Prove the refresh fills only missing photos; price/stock untouched | ✅ 1h (S) | S4 |
-| CAT2 | Ship the catalog in the APK (install-time seed, **49.5 MB**) | ✅ **8h (L)** | C5 ✅ |
-| CAT3b | Flag locally added products for easy recovery | 3h (M) | — |
-| CAT6 | Admin: build a delta from a base version + track pushes | 4h (M) | S4 |
-| CAT7b | Record `catalog_version` on the shopkeeper after apply | 1h (S) | S4 |
-| CAT9 | Admin push-update UI | 4h (M) | CAT6 |
-| C2 | Camera/gallery capture in the product form | 4h (M) | — |
-| FIX-TESTS | 2 pre-existing failures (`catalog_home_smoke_test`, `widget_test`) | 1h (S) | — |
-| COMMIT | Commit the delta/photo/bundle work (currently uncommitted) | 30m | — |
+| **G2** | Easy recovery / undo of locally added products (consumes `products.source`) | 4 h (M) | **delegated** |
+| **B0** | Specification spike: listing bundle + join rework | 2 h (S) | next; gates Phase B |
+| **B1/B3/B2/B6** | Listing bundle export/import + upsert + join rework | 18 h (L) | after B0 |
 
-## Open — offline isolation + join
-| ID | Item | Est. |
-|---|---|---|
-| A1 | Gate OFF/UPCitemdb lookups to admin (`CartProvider.lookupProduct`) | ✅ 1h |
-| A2 | Drop the join server call (`getShop`) — manual join accepts locally | ✅ 1h |
-| A3 | No sync client in the shopkeeper build (`loadSyncConfig` gated) | ✅ 0.5h |
-| V2 | Static proof: release shopkeeper APK has **0** hits for openfoodfacts / upcitemdb / mymemory / catalog.myhanout.ma (control strings present) | ✅ 0.5h |
-| B5 | ~~Per-shop `shop_id`~~ — **dropped** (catalog updates are universal; no shop binding) | — |
-| B4 | QR v2: per-shop lifetime (`ttl_seconds` travels in the token); payload names one `shop_key` | 4h |
-| B1,B3,B2,B6 | Listing bundle export/import + upsert + join rework | 18h |
-| V1,V2 | Airplane-mode run + APK grep proof | 2h |
+## Open — server
+| ID | Item | Est. | State |
+|---|---|---|---|
+| **A3** | Prod round-trip verification of `catalog-version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token** |
+| **A4** | Hardening: constant-time token compare, first API tests, photo-cap alignment | 3 h (M) | **delegated** |
 
-## Parked (later features)
-| ID | Item | Est. |
-|---|---|---|
-| G1 | Conflicts alarm on the admin app (review local vs catalog) | 8h (L) |
-| G2 | Easy-recovery list/undo for local additions | 4h (M) |
-| D1–D4 | Recommended retail price (catalog + server + listing + UI hint) | 10h |
-| E1 | Fin de journée: payment method + cash count + closure + share | 16h (L) |
-| E2 | Ticket de caisse: UI + WhatsApp share + Bluetooth ESC/POS | 20h (L) |
-| E3 | Automatic backup + restore UI | 12h (L) |
-| F1/F2 | Per-ABI / release builds | 2h |
-| F3 | Catalog-bundle asset packaging — asset **60 MB**; debug APK 261 MB (3 ABI) · release-arm64 **84.7 MB** | ✅ |
+## Parked (not now — decision 2026-11-15)
+- **C2** photo capture in the *shopkeeper* product form (already in the admin
+  catalog UI via `CaptureDialog`).
+- **C** POS features: E1 clôture de caisse (16 h) · D1–D4 prix conseillé (10 h) ·
+  E2 ticket + imprimante (20 h) · E3 backup auto (12 h) · G1 conflits (8 h).
+- **F1/F2** per-ABI / release build matrix.
 
 ## Resolved questions
-- ~~Where do the images come from?~~ **Server-side OFF ingest** (13,125; UPCitemdb unreliable).
-- ~~Full-coverage size?~~ **49.5 MB**, not 50–58.
-- ~~Browse UI in the shopkeeper?~~ **Kept** on both flavors for testing.
+- Version scheme: **monotone counter**, not epoch ms.
+- Delivery: **manual `.myhanout`**, not HTTP — offline lock.
+- One shop per push; screen named « Distribution du catalogue » (no network).
+- `PushTracker` in memory in v1 (prod → SQLite later).
+- Images: server-side OFF ingest; 49.5 MB, not 50–58.
+- Browse UI kept on both flavors.
 
-## Still open
-- D: is the recommended price editable per product in the admin catalog?
-- E1: payment methods; per-device closure?
-- E2: printer model(s); ticket layout.
-- E3: backup destination + retention.
+## Watch-outs
+- Never `const Text('…'.tr())`; `intl` shadows `TextDirection` →
+  `import 'dart:ui' as ui` + `ui.TextDirection.rtl`.
+- `businessName` is never translated.
+- The delta is **universal** — never bind it to a shop.
+- Shopkeeper must have zero network code outside `kIsAdmin`.
+- `assets/catalog_seed.db` is 60 MB — above the 50 MB recommendation.
+- `SyncConfig.defaultClient()` is still called directly in
+  `admin_setup_screen` (shop deletion) — last locator of its kind.

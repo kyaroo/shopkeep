@@ -1,5 +1,9 @@
 # Next-session plan — myhanout catalog & photos
 
+> **SUPERSEDED 2026-11-15** — S4/S5 are delivered and the catalog cycle is
+> closed. Current state lives in `docs/backlog.md`. Kept for history only.
+
+
 Prepared 2026-11-14 (evening). Supersedes the 2026-11-12 version.
 
 ## 1. Where we are
