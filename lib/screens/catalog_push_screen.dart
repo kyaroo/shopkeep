@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../data/catalog_db.dart';
 import '../data/catalog_sync_client.dart';
 import '../data/settings_service.dart';
 import '../data/sync_config.dart';
@@ -54,7 +53,8 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
   SettingsService get _settings =>
       widget.settings ?? context.read<SettingsService>();
 
-  CatalogRepository get _repo => widget.repository ?? CatalogDb.instance;
+  CatalogRepository get _repo =>
+      widget.repository ?? context.read<CatalogRepository>();
 
   CatalogSyncClientFactory get _clientFactory =>
       widget.clientFactory ?? SyncConfig.defaultClient;

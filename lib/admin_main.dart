@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:provider/provider.dart';
+import 'data/catalog_db.dart';
+import 'data/settings_service.dart';
+import 'models/catalog_entry.dart';
 import 'screens/admin_setup_screen.dart';
 import 'theme.dart';
 
@@ -27,7 +31,13 @@ class AdminSetupApp extends StatelessWidget {
       startLocale: const Locale('fr'),
       useOnlyLangCode: true,
       saveLocale: true,
-      child: const _AdminLocalizedApp(),
+      child: MultiProvider(
+        providers: [
+          Provider<SettingsService>.value(value: const ConfigSettingsService()),
+          Provider<CatalogRepository>.value(value: CatalogDb.instance),
+        ],
+        child: const _AdminLocalizedApp(),
+      ),
     );
   }
 }

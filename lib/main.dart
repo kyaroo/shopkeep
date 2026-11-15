@@ -8,7 +8,9 @@ import 'providers/sales_provider.dart';
 import 'build_config.dart';
 import 'data/config.dart';
 import 'data/myhanout_file.dart';
+import 'data/catalog_db.dart';
 import 'data/settings_service.dart';
+import 'models/catalog_entry.dart';
 import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
@@ -89,6 +91,8 @@ class MyhanoutApp extends StatelessWidget {
       child: MultiProvider(
         providers: [
           Provider<SettingsService>.value(value: settings),
+          // Catalog source for the founder tools (distribution screen).
+          Provider<CatalogRepository>.value(value: CatalogDb.instance),
           ChangeNotifierProvider(
             create: (_) => CartProvider(shopKey, businessName: businessName),
           ),
