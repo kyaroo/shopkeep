@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'config.dart';
+
 /// Best-effort copy of the bundled `assets/catalog_seed.db` to [dbPath] on
 /// first launch. Never overwrites an existing DB (so refreshes/updates are
 /// preserved) and never throws — failures fall back to an empty DB.
@@ -10,6 +12,14 @@ class CatalogSeedLoader {
   CatalogSeedLoader._();
 
   static const assetPath = 'assets/catalog_seed.db';
+
+  /// Version of the bundled catalog snapshot.
+  ///
+  /// Bump this whenever `assets/catalog_seed.db` is rebuilt from a newer
+  /// catalog generation: a `.myhanout` delta built against a different
+  /// generation is then rejected by the base-version guard instead of
+  /// half-applying. [CatalogDb] adopts it on first seed.
+  static const int seedCatalogVersion = 1;
 
   /// Returns true if a seed was copied.
   static Future<bool> ensureSeeded(String dbPath) async {
@@ -23,7 +33,7 @@ class CatalogSeedLoader {
     } catch (_) {
       return false;
     }
-    if (bytes == null || bytes.isEmpty) return false;
+    if (bytes.isEmpty) return false;
 
     final tmp = File('$dbPath.tmp');
     try {
@@ -40,6 +50,11 @@ class CatalogSeedLoader {
         return false;
       }
       await tmp.rename(dbPath);
+      // Adopt the snapshot's catalog version so the first delta must be built
+      // against it (base-version guard).
+      try {
+        await Config.setCatalogVersion(seedCatalogVersion);
+      } catch (_) {}
       return true;
     } catch (_) {
       await _safeDelete(tmp);

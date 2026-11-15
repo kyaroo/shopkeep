@@ -23,13 +23,14 @@ Reconciled 2026-11-15. Estimates: single developer, hours (S ≤2h · M 3–5h �
 | CAT5 `.myhanout` format + HMAC | ✅ |
 | CAT8 manifest intent filter (both flavors) + receive | ✅ |
 | S1/S2/S3 + 418-product scale test | ✅ 418/418, 0 missing, 0 size mismatches |
+| **S4 + S5** | ✅ base-version guard (stale delta rejected whole, version advances) + display-only refresh proof (74/74 tests) |
 | **CAT2 install-time seed** | ✅ asset **60 MB** (14,669 / 13,125 photos); fresh install verified on device; debug 261 MB · release-arm64 **84.7 MB** |
 
 ## Open — app
 | ID | Item | Est. | Deps |
 |---|---|---|---|
-| S4 | `Config.catalog_version` + base-version guard (reject stale deltas) | 2h (S) | — |
-| S5 | Prove the refresh fills only missing photos; price/stock untouched | 1h (S) | S4 |
+| S4 | `Config.catalog_version` + base-version guard (reject stale deltas) | ✅ 2h (S) | — |
+| S5 | Prove the refresh fills only missing photos; price/stock untouched | ✅ 1h (S) | S4 |
 | CAT2 | Ship the catalog in the APK (install-time seed, **49.5 MB**) | ✅ **8h (L)** | C5 ✅ |
 | CAT3b | Flag locally added products for easy recovery | 3h (M) | — |
 | CAT6 | Admin: build a delta from a base version + track pushes | 4h (M) | S4 |

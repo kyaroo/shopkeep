@@ -46,7 +46,19 @@ class MyhanoutFile {
     final verification =
         CatalogDelta.verify(json, shopKey: shopKey, shopId: shopId);
     if (!verification.ok) return 'rejected: ${verification.error}';
-    await verification.delta!.apply(CatalogDb.instance);
+    final d = verification.delta!;
+
+    // Base-version guard: a delta built against a different catalog
+    // generation than the one installed here is stale — reject it whole
+    // rather than half-applying.
+    final installed = await Config.getCatalogVersion();
+    if (d.baseVersion != installed) {
+      return 'rejected: catalog version mismatch '
+          '(device $installed, bundle ${d.baseVersion})';
+    }
+
+    await d.apply(CatalogDb.instance);
+    await Config.setCatalogVersion(d.targetVersion);
     // Display-cache refresh: fill the photo of matching inventory rows that
     // have none. Never touches price/stock/name.
     var refreshed = 0;
@@ -58,7 +70,6 @@ class MyhanoutFile {
         photo: e.photo!,
       );
     }
-    final d = verification.delta!;
     return 'applied ${d.upserts.length} update(s), ${d.deletes.length} delete(s)'
         ' (catalog → ${d.targetVersion})'
         '${refreshed > 0 ? ' · $refreshed inventory photo(s) filled' : ''}';

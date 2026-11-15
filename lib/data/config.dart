@@ -108,6 +108,25 @@ class Config {
     await prefs.setString(_shopId, value);
   }
 
+  // ---- Catalog version (base-version guard for `.myhanout` deltas) ----
+
+  static const _catalogVersion = 'catalog_version';
+
+  /// Version of the catalog snapshot installed on this device.
+  ///
+  /// Starts at the bundled seed's version and advances every time a
+  /// `.myhanout` delta is applied. A delta whose `base_version` differs is
+  /// rejected as stale, so an out-of-order or cross-generation bundle can
+  /// never half-apply.
+  static Future<int> getCatalogVersion() async =>
+      _instance?.getInt(_catalogVersion) ?? 0;
+
+  static Future<void> setCatalogVersion(int value) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    await prefs.setInt(_catalogVersion, value);
+  }
+
   static Future<Map<String, String>> getShopNames() async {
     if (_cachedShopNames != null) {
       return Map<String, String>.from(_cachedShopNames!);
