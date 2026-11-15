@@ -92,6 +92,21 @@ class Config {
   }
 
   static const _shopNames = 'shop_names';
+  static const _shopId = 'shop_id';
+
+  /// Per-shop random id. Catalog delta files (`.myhanout`) and QR codes are
+  /// bound to it, so one shop's payload cannot update another shop.
+  static Future<String> getShopId() async {
+    final prefs = _instance;
+    if (prefs == null) return '';
+    return prefs.getString(_shopId) ?? '';
+  }
+
+  static Future<void> setShopId(String value) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    await prefs.setString(_shopId, value);
+  }
 
   static Future<Map<String, String>> getShopNames() async {
     if (_cachedShopNames != null) {

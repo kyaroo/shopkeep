@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
@@ -60,7 +61,7 @@ class Db {
     }
     final db = await openDatabase(
       file.path,
-      version: 4,
+      version: 6,
       onConfigure: (_) async => await enableWals(),
       onCreate: _createAll,
       onUpgrade: _upgrade,
@@ -103,7 +104,9 @@ class Db {
         barcode TEXT,
         price_cents INTEGER NOT NULL,
         stock_qty INTEGER NOT NULL DEFAULT 0,
-        low_stock_threshold INTEGER NOT NULL DEFAULT 5
+        low_stock_threshold INTEGER NOT NULL DEFAULT 5,
+        photo BLOB,
+        photo_source TEXT NOT NULL DEFAULT 'catalog'
       )
     ''');
     await db.execute(
@@ -151,6 +154,15 @@ class Db {
   }
 
   static Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 6) {
+      // v6: provenance of the cached photo (catalog vs locally captured).
+      await db.execute(
+          "ALTER TABLE products ADD COLUMN photo_source TEXT NOT NULL DEFAULT 'catalog'");
+    }
+    if (oldVersion < 5) {
+      // v5: catalog photo on the shop's own products.
+      await db.execute('ALTER TABLE products ADD COLUMN photo BLOB');
+    }
     if (oldVersion < 4) {
       if (oldVersion < 3) {
         await db.execute('''
@@ -195,6 +207,25 @@ class Db {
       await db.execute(
           'CREATE INDEX idx_audit_log_changed_at ON audit_log(changed_at DESC)');
     }
+  }
+
+  // ---- Catalog photo cache (display only) ----
+
+  /// Stores a catalog photo on an existing inventory product, ONLY when that
+  /// product has no photo yet. Never touches price/stock/name — this is a
+  /// display-cache fill, not a listing update. Returns rows affected.
+  static Future<int> applyCatalogPhoto(
+    String shopKey, {
+    required String barcode,
+    required Uint8List photo,
+  }) async {
+    final db = await Db.databaseHandle(shopKey);
+    return db.update(
+      'products',
+      {'photo': photo, 'photo_source': 'catalog'},
+      where: 'barcode = ? AND photo IS NULL',
+      whereArgs: [barcode],
+    );
   }
 
   // ---- Products ----

@@ -22,6 +22,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Open `.myhanout` catalog delta files (e.g. received over
+                 WhatsApp) and apply them to the shop. Registered by both
+                 flavors so the admin can import shop-side additions too. -->
+            <intent-filter android:label="Update myhanout shop">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.myhanout" />
+            </intent-filter>
+            <intent-filter android:label="Update myhanout shop">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.myhanout" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

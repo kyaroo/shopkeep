@@ -6,6 +6,7 @@ import 'providers/cart_provider.dart';
 import 'providers/catalog_provider.dart';
 import 'build_config.dart';
 import 'data/config.dart';
+import 'data/myhanout_file.dart';
 import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
@@ -204,6 +205,22 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _tab = 0;
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyPendingFile());
+  }
+
+  /// Applies a `.myhanout` catalog delta the app was opened with (WhatsApp,
+  /// Downloads, a file manager). Silent when there is nothing to apply.
+  Future<void> _applyPendingFile() async {
+    final result = await MyhanoutFile.handleLaunchIntent();
+    if (result == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result), duration: const Duration(seconds: 4)),
+    );
+  }
 
   void _showLanguagePicker() {
     showModalBottomSheet(

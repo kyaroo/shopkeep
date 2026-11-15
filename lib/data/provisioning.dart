@@ -45,6 +45,18 @@ class Provisioning {
     }
   }
 
+  /// Signs an arbitrary canonical JSON string. Used by `.myhanout` catalog
+  /// delta files so a file can be verified offline and bound to one shop.
+  /// Returns a base64url HMAC-SHA256 signature.
+  static String signatureFor(String canonicalJson) {
+    final hmac = Hmac(sha256, utf8.encode(_provisioningSecret));
+    return base64UrlEncode(hmac.convert(utf8.encode(canonicalJson)).bytes);
+  }
+
+  /// Verifies a [signatureFor] signature in constant time.
+  static bool verifySignature(String canonicalJson, String signature) =>
+      _constantTimeEquals(signatureFor(canonicalJson), signature);
+
   static bool _constantTimeEquals(String a, String b) {
     if (a.length != b.length) return false;
     var result = 0;

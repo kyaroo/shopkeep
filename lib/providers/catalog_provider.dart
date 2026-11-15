@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/catalog_entry.dart';
 import '../data/catalog_db.dart';
@@ -204,6 +205,10 @@ class CatalogProvider with ChangeNotifier {
                 'category': e.category,
                 'origin': 'local',
                 'image_url': null,
+                // Local catalog photo (already downscaled to <=128px by
+                // processPhoto). Null when the entry has none.
+                'photo_base64':
+                    e.photo == null ? null : base64Encode(e.photo!),
               })
           .toList(),
     };

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/catalog_provider.dart';
@@ -194,7 +195,10 @@ class _BrowsePageState extends State<BrowsePage> {
                                 final origin = p['origin'] as String?;
                                 final isOwner = origin == 'owner';
                                 return ListTile(
-                                  leading: _Thumb(url: p['image_url'] as String?),
+                                  leading: _Thumb(
+                                    url: p['image_url'] as String?,
+                                    photoBase64: p['photo_base64'] as String?,
+                                  ),
                                   title: Text(name.isEmpty ? '(no name)' : name),
                                   subtitle: Text([
                                     if (brand != null && brand.isNotEmpty)
@@ -237,13 +241,29 @@ class _ProductGlyph extends StatelessWidget {
   }
 }
 
-/// Small network thumbnail with a graceful placeholder (OFF image URLs).
+/// Small thumbnail with a graceful placeholder.
+///
+/// Precedence: local catalog photo (`Image.memory`) → server/off-network
+/// `image_url` (`Image.network`) → branded glyph.
 class _Thumb extends StatelessWidget {
   final String? url;
-  const _Thumb({this.url});
+  final String? photoBase64;
+  const _Thumb({this.url, this.photoBase64});
 
   @override
   Widget build(BuildContext context) {
+    if (photoBase64 != null && photoBase64!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.memory(
+          base64Decode(photoBase64!),
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const _ProductGlyph(),
+        ),
+      );
+    }
     if (url == null || url!.isEmpty) {
       return const _ProductGlyph();
     }

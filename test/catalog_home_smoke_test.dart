@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:myhanout/screens/catalog_home_page.dart';
 import 'package:myhanout/providers/catalog_provider.dart';
+import 'package:myhanout/data/sync_service.dart';
 
 void main() {
   setUpAll(() {
@@ -13,9 +14,14 @@ void main() {
   });
 
   testWidgets('Catalog home screen pumps without crashing', (tester) async {
+    // CatalogHomePage reads SyncService (sync now / sync settings) as well as
+    // CatalogProvider — both must be provided.
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => CatalogProvider()..init(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SyncService()),
+          ChangeNotifierProvider(create: (_) => CatalogProvider()..init()),
+        ],
         child: const MaterialApp(home: CatalogHomePage()),
       ),
     );

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -201,10 +202,16 @@ Icon(
                       itemBuilder: (_, i) {
                         final p = products[i];
 return ListTile(
-  leading: StockBadge(
-    isOutOfStock: p.isOutOfStock,
-    isLowStock: p.isLowStock,
-  ),
+  leading: p.photo != null
+      ? ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.memory(p.photo!,
+              width: 44, height: 44, fit: BoxFit.cover, cacheWidth: 132),
+        )
+      : StockBadge(
+          isOutOfStock: p.isOutOfStock,
+          isLowStock: p.isLowStock,
+        ),
                           title: Text(p.name,
                               style: Theme.of(context)
                                   .extension<AppTextStyles>()!
@@ -274,6 +281,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   bool _saving = false;
   bool _lookingUp = false;
   bool _lookedUp = false;
+  Uint8List? _photo;
 
   @override
   void initState() {
@@ -285,12 +293,38 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _stock.text = p.stockQty.toString();
       _threshold.text = p.lowStockThreshold.toString();
       _barcode.text = p.barcode ?? '';
+      _photo = p.photo;
     } else {
       if (widget.initialBarcode != null) _barcode.text = widget.initialBarcode!;
       if (widget.initialName != null) _name.text = widget.initialName!;
       if (_threshold.text.isEmpty) _threshold.text = '5';
       if (_stock.text.isEmpty) _stock.text = '0';
     }
+    // Opened from a catalog row / scan with a barcode: resolve name + photo
+    // from the LOCAL catalog (offline, zero data).
+    if (widget.existing == null && widget.initialBarcode != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _resolveFromCatalog(widget.initialBarcode!),
+      );
+    }
+  }
+
+  /// Local-catalog lookup by barcode. Returns true when the catalog had it
+  /// (name + photo applied). Never touches the network.
+  Future<bool> _resolveFromCatalog(String code) async {
+    try {
+      final catalog = Provider.of<CatalogProvider>(context, listen: false);
+      final entry = await catalog.get(code);
+      if (entry != null && mounted) {
+        setState(() {
+          if (_name.text.trim().isEmpty) _name.text = entry.name;
+          _photo = entry.photo;
+          _lookedUp = true;
+        });
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   Future<void> _scan() async {
@@ -309,18 +343,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
     setState(() => _lookingUp = true);
     // Local catalog first (zero data).
-    try {
-      final catalog = Provider.of<CatalogProvider>(context, listen: false);
-      final entry = await catalog.get(code);
-      if (entry != null && mounted) {
-        setState(() {
-          _name.text = entry.name;
-          _lookedUp = true;
-        });
-        setState(() => _lookingUp = false);
-        return;
-      }
-    } catch (_) {}
+    final resolved = await _resolveFromCatalog(code);
+    if (!mounted) return;
+    if (resolved) {
+      setState(() => _lookingUp = false);
+      return;
+    }
     final result = await Provider.of<CartProvider>(context, listen: false)
         .lookupProduct(code);
     if (!mounted) return;
@@ -343,6 +371,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       priceCents: parseDirhamsToCents(_price.text.trim()),
       stockQty: int.tryParse(_stock.text.trim()) ?? 0,
       lowStockThreshold: int.tryParse(_threshold.text.trim()) ?? 5,
+      photo: _photo,
     );
     await Provider.of<CartProvider>(context, listen: false).saveProduct(p);
     if (mounted) Navigator.pop(context, p);
@@ -360,6 +389,25 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_photo != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        _photo!,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        cacheWidth: 216,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.broken_image, size: 40),
+                      ),
+                    ),
+                  ),
+                ),
               TextFormField(
                 controller: _name,
                 decoration: InputDecoration(
