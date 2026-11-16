@@ -50,3 +50,9 @@ app.*.map.json
 
 # Host-side tool output (generated QR / delta artifacts, never source)
 scratch/
+
+# Release signing: the key and its password must never be committed.
+# The .jks itself lives OUTSIDE the repo; key.properties is per-machine.
+/android/key.properties
+*.jks
+*.keystore

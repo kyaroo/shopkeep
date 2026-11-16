@@ -262,8 +262,25 @@ Criteria closed by tests: 2, 3, 4, 5, 7, 8 (accessor + persistence; the
 display is phase-2 attribution UI), 9, 10, 11, 12, 13, 14, 16, 17.
 Criterion 15 (cross-language vector) is **not applicable**: every producer and
 consumer is the same Dart `Signing.canonicalize`, and no non-Dart producer
-exists. Criterion 18 (release keystore) is open — it needs a build-infra
-decision, not a code change.
+exists.
+
+**Criterion 18 (release signing) — closed 2026-11-16.** `android/key.properties`
+(git-ignored, per-machine) points at a PKCS12 keystore kept outside the repo at
+`~/.myhanout-keystore/myhanout-release.jks`; `build.gradle.kts` reads it and
+falls back to the debug key when absent, so a fresh clone still builds. Both
+release APKs verify with
+`apksigner` → SHA-256 `67c4aaeb303c704c8ae6b6cd29a48c629b0977e3958b802072f2c3f8f695a690`,
+certificate `CN=myhanout, OU=POS, O=myhanout, L=Marrakech, ST=Marrakech, C=MA`,
+valid to 2056-11-08. **The password is backed up on the Windows desktop**
+(`Desktop/myhanout-release-keystore-password.txt`, SHA-256 verified). Losing
+both the keystore and that password blocks every future update of the
+`com.myhanout.*` IDs.
+
+**Baked signers directory rotated 2026-11-16** (`assets/signers.json` → version 2,
+signers `founder-admin` (founder), `admin-1` (admin), `salesman-1` (salesman));
+the previous demo root/admin keys are burned. Private seeds live outside the
+repo at `~/.myhanout-keystore/signers-seeds.txt`. `tool/gen_signer_keys.dart`
+never prints them and refuses to write them inside the repo.
 
 Additional defect found and fixed while closing these: the strict JSON parser
 indexed past the end of the input (`RangeError` instead of `FormatException`),

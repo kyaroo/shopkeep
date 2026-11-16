@@ -19,7 +19,7 @@ class ArtifactFormat {
 ///
 /// Generated once by `tool/gen_signer_keys.dart`; the private half never
 /// leaves the founder's device.
-const String kRootPublicKeyB64 = 'o6PV8WEdjd_v4ohNenMUgA3nZgCq5kyZXrXXIoZXjkE=';
+const String kRootPublicKeyB64 = 'bzQmWdafMHVj2RnGofETUR1d7EPcdQLxQwHfRxplxAE=';
 
 /// One entry of the signers directory.
 class SignerEntry {

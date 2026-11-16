@@ -1,8 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Release signing: key.properties is git-ignored and per-machine, and the
+// keystore itself lives outside the repo. When it is absent we fall back to the
+// debug key rather than failing the build, so a fresh clone still compiles.
+val keyPropertiesFile = rootProject.file("key.properties")
+val hasReleaseKey = keyPropertiesFile.exists()
 
 android {
     namespace = "com.myhanout"
@@ -38,9 +46,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                val props = Properties()
+                keyPropertiesFile.inputStream().use { props.load(it) }
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(
+                if (hasReleaseKey) "release" else "debug"
+            )
         }
     }
 }
