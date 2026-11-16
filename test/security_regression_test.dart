@@ -10,6 +10,8 @@
 /// client-side behaviour.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myhanout/data/db.dart';
 import 'package:myhanout/data/sync_config.dart';
@@ -101,5 +103,37 @@ void main() {
       expect(await provider.browseServer(), isNull);
       expect(await provider.syncNow(), isFalse);
     });
+
+    test('the gated calls make no HTTP request at all', () async {
+      // Stronger than asserting a null result: fail the whole test if any
+      // HttpClient is even constructed, i.e. nothing is dialled out.
+      SharedPreferences.setMockInitialValues({
+        'sync_url': 'https://catalog.example.test',
+        'sync_token': 'abc123',
+      });
+      final previous = HttpOverrides.current;
+      HttpOverrides.global = _NoNetworkOverrides();
+      try {
+        final provider = CatalogProvider();
+        expect(await provider.resolveFromServer('0011210006508'), isNull);
+        expect(await provider.browseServer(), isNull);
+        expect(await provider.syncNow(), isFalse);
+        expect(_NoNetworkOverrides.attempts, 0,
+            reason: 'the shopkeeper flavor attempted an HTTP request');
+      } finally {
+        HttpOverrides.global = previous;
+      }
+    });
   });
+}
+
+/// Fails the test on the first attempted outbound connection.
+class _NoNetworkOverrides extends HttpOverrides {
+  static int attempts = 0;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    attempts++;
+    throw StateError('unexpected HTTP request');
+  }
 }
