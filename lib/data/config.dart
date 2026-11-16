@@ -129,6 +129,142 @@ class Config {
     await prefs.setInt(_catalogVersion, value);
   }
 
+  // ---- Signers directory (trust material, QR-distributed) ----
+
+  static const _signersEnvelope = 'signers_envelope';
+
+  /// The scanned directory override, persisted verbatim. Re-verified against
+  /// the baked root key on every load — a tampered store must never win.
+  static Future<String?> getSignersEnvelope() async =>
+      _instance?.getString(_signersEnvelope);
+
+  static Future<void> saveSignersEnvelope(String value) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    await prefs.setString(_signersEnvelope, value);
+  }
+
+  // ---- Provisioning attribution ----
+
+  static const _provisionedBy = 'provisioned_by';
+
+  /// `shopKey → {"name": …, "id": …}` — who joined/provisioned the shop.
+  static Future<String?> getProvisionedBy(String shopKey) async {
+    final raw = _instance?.getString(_provisionedBy);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final entry = map[shopKey];
+      if (entry is Map) return '${entry['name'] ?? ''}';
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<String?> getProvisionedById(String shopKey) async {
+    final raw = _instance?.getString(_provisionedBy);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final entry = map[shopKey];
+      if (entry is Map) return '${entry['id'] ?? ''}';
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> saveProvisionedBy(
+    String shopKey,
+    String name,
+    String signerId,
+  ) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    final raw = prefs.getString(_provisionedBy);
+    Map<String, dynamic> map = {};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      } catch (_) {}
+    }
+    map[shopKey] = {'name': name, 'id': signerId};
+    await prefs.setString(_provisionedBy, jsonEncode(map));
+  }
+
+  // ---- Provisioning nonce replay guard ----
+
+  static const _usedNonces = 'used_nonces';
+
+  static List<Map<String, dynamic>> _readNonces() {
+    final raw = _instance?.getString(_usedNonces);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      return (jsonDecode(raw) as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> isNonceUsed(String nonce) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return _readNonces().any((e) =>
+        e['nonce'] == nonce && (e['expires_at'] as int? ?? 0) > now);
+  }
+
+  static Future<void> markNonceUsed(String nonce, Duration ttl) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    final now = DateTime.now();
+    final rows = _readNonces()
+        .where((e) => (e['expires_at'] as int? ?? 0) > now.millisecondsSinceEpoch)
+        .toList();
+    rows.add({
+      'nonce': nonce,
+      'expires_at': now.add(ttl).millisecondsSinceEpoch,
+    });
+    await prefs.setString(_usedNonces, jsonEncode(rows));
+  }
+
+  // ---- Signer private keys (this device's own keypairs) ----
+
+  static const _signerKeys = 'signer_keys';
+
+  static Future<List<int>?> getSignerKey(String signerId) async {
+    final raw = _instance?.getString(_signerKeys);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      final b64 = map[signerId] as String?;
+      if (b64 == null) return null;
+      return base64Url.decode(base64Url.normalize(b64));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> saveSignerKey(String signerId, List<int> seed) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    final raw = prefs.getString(_signerKeys);
+    Map<String, dynamic> map = {};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      } catch (_) {}
+    }
+    map[signerId] = base64Url.encode(seed);
+    await prefs.setString(_signerKeys, jsonEncode(map));
+  }
+
+  static Future<String?> getActiveSignerId() async =>
+      _instance?.getString('active_signer_id');
+
+  static Future<void> setActiveSignerId(String value) async {
+    final prefs = _instance;
+    if (prefs == null) return;
+    await prefs.setString('active_signer_id', value);
+  }
+
   static Future<Map<String, String>> getShopNames() async {
     if (_cachedShopNames != null) {
       return Map<String, String>.from(_cachedShopNames!);

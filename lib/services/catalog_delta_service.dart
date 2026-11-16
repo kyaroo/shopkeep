@@ -1,5 +1,6 @@
 import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/photo_processor.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 /// Hard per-photo budget inside a `.myhanout` delta.
@@ -61,13 +62,15 @@ class CatalogDeltaBuilder {
   /// Every photo larger than [kMaxDeltaPhotoBytes] is re-encoded through
   /// [processPhoto]; if that still does not fit, the photo is dropped from
   /// that entry rather than bloating (or breaking) the file.
-  static DeltaBuildResult build({
+  static Future<DeltaBuildResult> build({
     required int baseVersion,
     required int targetVersion,
     required int generatedAt,
+    required String signerId,
+    required List<int> privateSeed,
     required List<CatalogEntry> entries,
     List<String> deletes = const [],
-  }) {
+  }) async {
     var trimmed = 0;
     var dropped = 0;
 
@@ -102,6 +105,7 @@ class CatalogDeltaBuilder {
     }
 
     final delta = CatalogDelta(
+      signerId: signerId,
       baseVersion: baseVersion,
       targetVersion: targetVersion,
       generatedAt: generatedAt,
@@ -109,7 +113,7 @@ class CatalogDeltaBuilder {
       deletes: deletes,
     );
     return DeltaBuildResult(
-      json: delta.toFileJson(),
+      json: await Signing.signArtifactFile(delta.toPayload(), privateSeed),
       upserts: upserts.length,
       deletes: deletes.length,
       photosTrimmed: trimmed,

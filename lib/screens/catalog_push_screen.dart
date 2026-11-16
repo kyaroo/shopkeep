@@ -131,9 +131,20 @@ class _CatalogPushScreenState extends State<CatalogPushScreen> {
     try {
       final local = await _localVersion();
       final target = base + 1;
-      final result = CatalogPushBuilder.buildPayload(
+
+      final signerId = await _settings.getActiveSignerId();
+      final seed = signerId == null ? null : await _settings.getSignerKey(signerId);
+      if (signerId == null || seed == null) {
+        if (mounted) setState(() => _building = false);
+        _snack(false, 'catalogPushNoSigner'.tr());
+        return;
+      }
+
+      final result = await CatalogPushBuilder.buildPayload(
         localVersion: local,
         shopVersion: base,
+        signerId: signerId,
+        privateSeed: seed,
         entries: _entries,
       );
 

@@ -5,23 +5,32 @@
 //
 // Usage:
 //   dart run tool/make_catalog_delta.dart <export.json> <out.myhanout> \
-//       <baseVersion> <targetVersion>
+//       <baseVersion> <targetVersion> --signer-id <id> --private-seed <base64url>
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:myhanout/data/catalog_delta.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 Future<void> main(List<String> args) async {
   if (args.length != 4) {
     stderr.writeln('usage: make_catalog_delta.dart <export> <out> '
-        '<base> <target>');
+        '<base> <target> --signer-id <id> --private-seed <base64url>');
     exit(2);
   }
   final exportPath = args[0];
   final outPath = args[1];
   final base = int.parse(args[2]);
   final target = int.parse(args[3]);
+
+  final signerId = _arg(args, '--signer-id', '');
+  final seedB64 = _arg(args, '--private-seed', '');
+  if (signerId.isEmpty || seedB64.isEmpty) {
+    stderr.writeln('missing --signer-id / --private-seed');
+    exit(2);
+  }
+  final seed = base64Url.decode(base64Url.normalize(seedB64));
 
   final rows = jsonDecode(await File(exportPath).readAsString()) as List;
   final upserts = rows
@@ -42,12 +51,20 @@ Future<void> main(List<String> args) async {
       .toList();
 
   final delta = CatalogDelta(
+    signerId: signerId,
     baseVersion: base,
     targetVersion: target,
     generatedAt: target,
     upserts: upserts,
   );
-  await File(outPath).writeAsString(delta.toFileJson());
+  final contents = await Signing.signArtifactFile(delta.toPayload(), seed);
+  await File(outPath).writeAsString(contents);
   stdout.writeln('wrote $outPath (${upserts.length} products, '
-      '${File(outPath).lengthSync()} B)');
+      'signer $signerId, ${File(outPath).lengthSync()} B)');
+}
+
+String _arg(List<String> args, String key, String fallback) {
+  final i = args.indexOf(key);
+  if (i >= 0 && i + 1 < args.length) return args[i + 1];
+  return fallback;
 }

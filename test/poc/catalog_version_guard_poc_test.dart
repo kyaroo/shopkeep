@@ -15,14 +15,20 @@ import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/config.dart';
 import 'package:myhanout/data/myhanout_file.dart';
 import 'package:myhanout/models/catalog_entry.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../helpers/signing_trust.dart';
 
 const _shopKey = 'hanouti';
 const _barcode = '0011210006508';
 final _photo = Uint8List.fromList([1, 2, 3, 4, 5]);
 
-CatalogDelta _delta(int base, int target) => CatalogDelta(
+CatalogDelta _delta(int base, int target,
+        {String signerId = SigningTrust.adminId}) =>
+    CatalogDelta(
+      signerId: signerId,
       baseVersion: base,
       targetVersion: target,
       generatedAt: target,
@@ -38,7 +44,13 @@ CatalogDelta _delta(int base, int target) => CatalogDelta(
       ],
     );
 
+Future<String> _signed(SigningTrust trust, int base, int target) =>
+    Signing.signArtifactFile(
+        _delta(base, target).toPayload(), trust.seed(SigningTrust.adminId));
+
 void main() {
+  late SigningTrust trust;
+
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
     sqfliteFfiInit();
@@ -49,8 +61,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await Config.init();
     await Config.setCurrentShopKey(_shopKey);
-    // Let the catalog singleton initialize (seeding on first use) BEFORE the
-    // test pins a version, otherwise the seed would overwrite it.
+    // Install a directory the receiver will trust, then let the catalog
+    // singleton initialize (seeding on first use) BEFORE pinning a version.
+    trust = await SigningTrust.create();
+    await Config.saveSignersEnvelope(trust.directory.envelope);
     await CatalogDb.instance.init();
   });
 
@@ -58,23 +72,26 @@ void main() {
       () async {
     await Config.setCatalogVersion(1000);
 
-    final next = await MyhanoutFile.applyJson(_delta(1000, 1001).toFileJson());
+    final next = await MyhanoutFile.applyJson(await _signed(trust, 1000, 1001),
+        directory: trust.directory);
     expect(next, startsWith('applied 1 update(s)'));
     expect(await Config.getCatalogVersion(), 1001);
 
     // Replaying the same bundle is stale now.
-    final replay =
-        await MyhanoutFile.applyJson(_delta(1000, 1001).toFileJson());
+    final replay = await MyhanoutFile.applyJson(await _signed(trust, 1000, 1001),
+        directory: trust.directory);
     expect(replay, contains('catalog version mismatch'));
     expect(await Config.getCatalogVersion(), 1001);
 
     // A bundle built from an older generation is stale too.
-    final older = await MyhanoutFile.applyJson(_delta(999, 1000).toFileJson());
+    final older = await MyhanoutFile.applyJson(await _signed(trust, 999, 1000),
+        directory: trust.directory);
     expect(older, contains('catalog version mismatch'));
     expect(await Config.getCatalogVersion(), 1001);
 
     // The next delta in the sequence applies and advances again.
-    final third = await MyhanoutFile.applyJson(_delta(1001, 1002).toFileJson());
+    final third = await MyhanoutFile.applyJson(await _signed(trust, 1001, 1002),
+        directory: trust.directory);
     expect(third, startsWith('applied 1 update(s)'));
     expect(await Config.getCatalogVersion(), 1002);
 

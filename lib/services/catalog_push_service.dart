@@ -22,12 +22,14 @@ class CatalogPushBuilder {
   ///
   /// Returns the [DeltaBuildResult] so the caller can report what the photo
   /// budget did; the file contents are `result.json`.
-  static DeltaBuildResult buildPayload({
+  static Future<DeltaBuildResult> buildPayload({
     required int localVersion,
     required int shopVersion,
+    required String signerId,
+    required List<int> privateSeed,
     required List<CatalogEntry> entries,
     List<String> deletes = const [],
-  }) {
+  }) async {
     if (shopVersion <= 0) {
       throw const CatalogBaseMismatchException(0, 0);
     }
@@ -39,6 +41,8 @@ class CatalogPushBuilder {
       baseVersion: shopVersion,
       targetVersion: target,
       generatedAt: target,
+      signerId: signerId,
+      privateSeed: privateSeed,
       entries: entries,
       deletes: deletes,
     );

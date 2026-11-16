@@ -1,37 +1,42 @@
 import 'dart:convert';
 
 import '../models/catalog_entry.dart';
-import 'provisioning.dart';
+import 'signing.dart';
 
 /// `.myhanout` — a signed catalog delta file.
 ///
 /// Carries only the catalog rows that changed since [baseVersion]. The
 /// shopkeeper applies it offline (a file received over WhatsApp, from a file
-/// manager, ...). The signature reuses the provisioning HMAC secret.
+/// manager, ...).
 ///
 /// The catalog is **universal**: a delta's content (name / name_ar / name_en /
 /// category / photo) is identical for every shop, so it is deliberately *not*
 /// bound to a shop — any device may apply any validly signed delta. Shop data
 /// (price, stock) never travels here, which is what keeps the listing safe.
 ///
-/// Only catalog fields travel here: name / name_ar / name_en / category /
-/// photo. The shop's listing (price, stock) is never touched, so a delta
-/// cannot clobber local pricing.
+/// Integrity comes from the signer's **Ed25519** key, resolved through the
+/// signers directory; the HMAC era (`fileVersion` 1) is gone.
 class CatalogDelta {
   static const String format = 'myhanout-catalog-delta';
   static const String fileExtension = '.myhanout';
-  static const int fileVersion = 1;
+
+  /// 2 = Ed25519 + `signer_id`. v1 was the HMAC era.
+  static const int fileVersion = 2;
+
+  /// The signer that authored this delta (resolved in the directory).
+  final String signerId;
 
   /// The catalog version this delta applies to (the shopkeeper's installed one).
   final int baseVersion;
 
-  /// The catalog version after applying it.
+  /// The catalog version after applying it. Must be `baseVersion + 1`.
   final int targetVersion;
   final int generatedAt;
   final List<CatalogEntry> upserts;
   final List<String> deletes;
 
   CatalogDelta({
+    required this.signerId,
     required this.baseVersion,
     required this.targetVersion,
     required this.generatedAt,
@@ -39,16 +44,23 @@ class CatalogDelta {
     this.deletes = const [],
   });
 
-  /// Canonical payload (signature excluded) — exactly what gets signed.
-  Map<String, dynamic> _payload() => <String, dynamic>{
+  /// Signed payload, `signature` excluded — exactly what gets signed.
+  Map<String, dynamic> toPayload() => <String, dynamic>{
         'format': format,
-        'version': fileVersion,
+        'alg': Signing.algorithm,
+        'fileVersion': fileVersion,
+        'signer_id': signerId,
         'base_version': baseVersion,
         'target_version': targetVersion,
         'generated_at': generatedAt,
         'upserts': upserts.map(_entryToMap).toList(),
         'deletes': deletes,
       };
+
+  /// Unsigned pretty-printed file (preview / tests). Signing is
+  /// `Signing.signArtifactFile(delta.toPayload(), seed)`.
+  String toFileJson() =>
+      const JsonEncoder.withIndent('  ').convert(toPayload());
 
   Map<String, dynamic> _entryToMap(CatalogEntry e) => <String, dynamic>{
         'barcode': e.barcode,
@@ -60,40 +72,55 @@ class CatalogDelta {
         'updated_at': e.updatedAt,
       };
 
-  /// Serialized file contents (pretty JSON, signed).
-  String toFileJson() {
-    final payload = _payload();
-    final signature = Provisioning.signatureFor(jsonEncode(payload));
-    return const JsonEncoder.withIndent('  ')
-        .convert(<String, dynamic>{...payload, 'signature': signature});
-  }
-
-  /// Verifies the signature, then decodes the delta.
-  static DeltaVerification verify(String json) {
-    Map<String, dynamic> map;
+  /// Verifies a delta file offline: format → signer → role → signature →
+  /// version step. Returns a [DeltaVerification].
+  static Future<DeltaVerification> verify(
+    String json, {
+    required SignersDirectory directory,
+  }) async {
+    final Map<String, dynamic> payload;
+    final List<int> signature;
     try {
-      map = jsonDecode(json) as Map<String, dynamic>;
-    } catch (_) {
-      return DeltaVerification.failed('not valid JSON');
+      (payload, signature) = Signing.splitArtifact(json);
+    } on FormatException catch (e) {
+      return DeltaVerification.failed(e.message);
     }
-    if (map['format'] != format) {
+    if (payload['format'] != format) {
       return DeltaVerification.failed('unknown format');
     }
-    final signature = map.remove('signature') as String?;
-    if (signature == null) return DeltaVerification.failed('missing signature');
-    if (!Provisioning.verifySignature(jsonEncode(map), signature)) {
-      return DeltaVerification.failed('bad signature');
+
+    final envelope = Signing.wrap(Signing.canonicalize(payload), signature);
+    final result = await Signing.verifyEnvelope(
+      envelope,
+      directory: directory,
+      expectedFormat: format,
+      allowedRoles: const {SignerRole.founder, SignerRole.admin},
+    );
+    if (!result.ok) return DeltaVerification.failed(result.error!);
+
+    final base = payload['base_version'];
+    final target = payload['target_version'];
+    if (base is! int || target is! int) {
+      return DeltaVerification.failed('malformed-field');
     }
+    // Defence in depth: the build side already emits base+1; a delta that
+    // jumps the version is rejected so a leaked key cannot desync every shop.
+    if (target != base + 1) {
+      return DeltaVerification.failed('version jump');
+    }
+
     return DeltaVerification.ok(
       CatalogDelta(
-        baseVersion: map['base_version'] as int,
-        targetVersion: map['target_version'] as int,
-        generatedAt: map['generated_at'] as int,
-        upserts: (map['upserts'] as List)
+        signerId: payload['signer_id'] as String,
+        baseVersion: base,
+        targetVersion: target,
+        generatedAt: payload['generated_at'] as int? ?? 0,
+        upserts: (payload['upserts'] as List? ?? [])
             .map((raw) => _entryFromMap(raw as Map<String, dynamic>))
             .toList(),
-        deletes: (map['deletes'] as List).cast<String>(),
+        deletes: (payload['deletes'] as List? ?? []).cast<String>(),
       ),
+      signerName: result.signer?.name,
     );
   }
 
@@ -138,9 +165,12 @@ class CatalogDelta {
 class DeltaVerification {
   final CatalogDelta? delta;
   final String? error;
+  final String? signerName;
 
-  DeltaVerification.ok(this.delta) : error = null;
-  DeltaVerification.failed(this.error) : delta = null;
+  DeltaVerification.ok(this.delta, {this.signerName}) : error = null;
+  DeltaVerification.failed(this.error)
+      : delta = null,
+        signerName = null;
 
   bool get ok => delta != null;
 }

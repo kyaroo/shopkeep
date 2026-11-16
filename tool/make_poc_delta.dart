@@ -4,13 +4,17 @@
 //   dart run tool/make_poc_delta.dart \
 //     --barcode 6111035001673 --name "Aïn Atlas 50cl" --category beverage \
 //     --image test/poc/ain_atlas_off.jpg \
-//     --base 1000 --target 1001 --out scratch/ain_atlas.myhanout
+//     --base 1000 --target 1001 \
+//     --signer-id founder-admin --private-seed <base64url> \
+//     --out scratch/ain_atlas.myhanout
 //
 // Defaults reproduce the original Tabasco POC.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/photo_processor.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 String _arg(List<String> args, String key, String fallback) {
@@ -27,6 +31,13 @@ Future<void> main(List<String> args) async {
   final imagePath = _arg(args, '--image', 'test/poc/tabasco_off.jpg');
   final base = int.parse(_arg(args, '--base', '1000'));
   final target = int.parse(_arg(args, '--target', '1001'));
+  final signerId = _arg(args, '--signer-id', 'founder-admin');
+  final seedB64 = _arg(args, '--private-seed', '');
+  if (seedB64.isEmpty) {
+    stderr.writeln('missing --private-seed (the signer\'s 32-byte key, base64url)');
+    exit(2);
+  }
+  final seed = base64Url.decode(base64Url.normalize(seedB64));
   final out = _arg(args, '--out', 'poc.myhanout');
 
   final photo = processPhoto(File(imagePath).readAsBytesSync());
@@ -36,6 +47,7 @@ Future<void> main(List<String> args) async {
   }
 
   final delta = CatalogDelta(
+    signerId: signerId,
     baseVersion: base,
     targetVersion: target,
     generatedAt: target,
@@ -52,7 +64,8 @@ Future<void> main(List<String> args) async {
     ],
   );
 
-  await File(out).writeAsString(delta.toFileJson());
+  await File(out)
+      .writeAsString(await Signing.signArtifactFile(delta.toPayload(), seed));
   stdout.writeln('wrote $out (${File(out).lengthSync()} B, '
-      'photo ${photo.length} B, barcode $barcode)');
+      'photo ${photo.length} B, barcode $barcode, signer $signerId)');
 }

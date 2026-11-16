@@ -16,6 +16,27 @@ import 'package:myhanout/data/photo_processor.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 import 'package:myhanout/services/catalog_delta_service.dart';
 
+import '../helpers/signing_trust.dart';
+
+late SigningTrust trust;
+
+Future<DeltaBuildResult> _build({
+  required int baseVersion,
+  required int targetVersion,
+  required int generatedAt,
+  required List<CatalogEntry> entries,
+  List<String> deletes = const [],
+}) =>
+    CatalogDeltaBuilder.build(
+      baseVersion: baseVersion,
+      targetVersion: targetVersion,
+      generatedAt: generatedAt,
+      signerId: SigningTrust.founderAdminId,
+      privateSeed: trust.seed(SigningTrust.founderAdminId),
+      entries: entries,
+      deletes: deletes,
+    );
+
 /// Encodes a noisy JPEG. Noise compresses poorly, so a big canvas at a high
 /// quality reliably exceeds the budget — while still being decodable.
 Uint8List _rawJpeg(int w, int h, int quality) {
@@ -41,8 +62,12 @@ final Uint8List _oversizedJunk = Uint8List.fromList(
 );
 
 void main() {
-  test('builds a signed delta with base/target versions', () {
-    final result = CatalogDeltaBuilder.build(
+  setUp(() async {
+    trust = await SigningTrust.create();
+  });
+
+  test('builds a signed delta with base/target versions', () async {
+    final result = await _build(
       baseVersion: 1000,
       targetVersion: 1001,
       generatedAt: 1001,
@@ -76,8 +101,8 @@ void main() {
     expect(result.photosUntouched, isTrue);
   });
 
-  test('applies updatedAt to upserts', () {
-    final result = CatalogDeltaBuilder.build(
+  test('applies updatedAt to upserts', () async {
+    final result = await _build(
       baseVersion: 1000,
       targetVersion: 1001,
       generatedAt: 1001,
@@ -99,10 +124,10 @@ void main() {
     expect(upsert.first['updated_at'], 1001);
   });
 
-  test('a photo at or under the budget passes through untouched', () {
+  test('a photo at or under the budget passes through untouched', () async {
     expect(_smallPhoto.length, lessThanOrEqualTo(kMaxDeltaPhotoBytes));
 
-    final result = CatalogDeltaBuilder.build(
+    final result = await _build(
       baseVersion: 1,
       targetVersion: 2,
       generatedAt: 2,
@@ -122,11 +147,11 @@ void main() {
     expect((map['upserts'] as List).first['photo_base64'], isNotNull);
   });
 
-  test('an oversized decodable photo is resized under the budget', () {
+  test('an oversized decodable photo is resized under the budget', () async {
     expect(_bigPhoto.length, greaterThan(kMaxDeltaPhotoBytes),
         reason: 'fixture must exceed the budget to exercise the resize path');
 
-    final result = CatalogDeltaBuilder.build(
+    final result = await _build(
       baseVersion: 1,
       targetVersion: 2,
       generatedAt: 2,
@@ -149,8 +174,8 @@ void main() {
     expect(base64Decode(b64).length, lessThanOrEqualTo(kMaxDeltaPhotoBytes));
   });
 
-  test('an oversized photo that cannot be re-encoded is dropped', () {
-    final result = CatalogDeltaBuilder.build(
+  test('an oversized photo that cannot be re-encoded is dropped', () async {
+    final result = await _build(
       baseVersion: 1,
       targetVersion: 2,
       generatedAt: 2,
@@ -175,8 +200,8 @@ void main() {
     expect(upsert['photo_base64'], isNull);
   });
 
-  test('mixed batch reports both counters', () {
-    final result = CatalogDeltaBuilder.build(
+  test('mixed batch reports both counters', () async {
+    final result = await _build(
       baseVersion: 1,
       targetVersion: 2,
       generatedAt: 2,

@@ -99,12 +99,14 @@ class VerifyResult {
   final bool ok;
   final SignerEntry? signer;
   final String? error;
+  final Map<String, dynamic>? payload;
 
-  const VerifyResult._(this.ok, this.signer, this.error);
+  const VerifyResult._(this.ok, this.signer, this.error, this.payload);
 
-  factory VerifyResult.ok(SignerEntry signer) =>
-      VerifyResult._(true, signer, null);
-  factory VerifyResult.fail(String error) => VerifyResult._(false, null, error);
+  factory VerifyResult.ok(SignerEntry signer, Map<String, dynamic> payload) =>
+      VerifyResult._(true, signer, null, payload);
+  factory VerifyResult.fail(String error) =>
+      VerifyResult._(false, null, error, null);
 
   static const errNotJson = 'not-json';
   static const errUnknownFormat = 'unknown-format';
@@ -246,8 +248,14 @@ class Signing {
   }) async {
     final parts = envelope.split('.');
     if (parts.length != 2) return VerifyResult.fail(VerifyResult.errBadSignature);
-    final payloadBytes = base64Url.decode(base64Url.normalize(parts[0]));
-    final sigBytes = base64Url.decode(base64Url.normalize(parts[1]));
+    final List<int> payloadBytes;
+    final List<int> sigBytes;
+    try {
+      payloadBytes = base64Url.decode(base64Url.normalize(parts[0]));
+      sigBytes = base64Url.decode(base64Url.normalize(parts[1]));
+    } catch (_) {
+      return VerifyResult.fail(VerifyResult.errBadSignature);
+    }
 
     final Map<String, dynamic> payload;
     try {
@@ -284,7 +292,7 @@ class Signing {
       return VerifyResult.fail(VerifyResult.errBadSignature);
     }
     if (!ok) return VerifyResult.fail(VerifyResult.errBadSignature);
-    return VerifyResult.ok(signer);
+    return VerifyResult.ok(signer, payload);
   }
 
   /// Signs an artifact **file**: canonical payload + `signature` appended, then

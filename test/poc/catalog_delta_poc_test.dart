@@ -17,7 +17,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/photo_processor.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/models/catalog_entry.dart';
+
+import '../helpers/signing_trust.dart';
 
 const _barcode = '0011210006508';
 const _offUrl =
@@ -71,8 +74,10 @@ class _MemoryRepo implements CatalogRepository {
   Future<int> count({String? search}) async => _rows.length;
 }
 
-CatalogDelta _delta(Uint8List photo, {int base = 1000, int target = 1001}) =>
+CatalogDelta _delta(Uint8List photo,
+        {int base = 1000, int target = 1001, String signerId = SigningTrust.adminId}) =>
     CatalogDelta(
+      signerId: signerId,
       baseVersion: base,
       targetVersion: target,
       generatedAt: target,
@@ -89,13 +94,24 @@ CatalogDelta _delta(Uint8List photo, {int base = 1000, int target = 1001}) =>
       ],
     );
 
+Future<String> _signed(SigningTrust trust, Uint8List photo,
+        {String signerId = SigningTrust.adminId}) =>
+    Signing.signArtifactFile(
+        _delta(photo, signerId: signerId).toPayload(), trust.seed(signerId));
+
 void main() {
+  late SigningTrust trust;
+
+  setUp(() async {
+    trust = await SigningTrust.create();
+  });
+
   test('1. build + verify + apply, photo bytes survive', () async {
     final photo = processPhoto(await _sourceImage())!;
     final repo = _MemoryRepo();
 
-    final file = _delta(photo).toFileJson();
-    final v = CatalogDelta.verify(file);
+    final file = await _signed(trust, photo);
+    final v = await CatalogDelta.verify(file, directory: trust.directory);
     expect(v.ok, isTrue, reason: v.error);
     expect(v.delta!.baseVersion, 1000);
     expect(v.delta!.targetVersion, 1001);
@@ -109,32 +125,53 @@ void main() {
 
     // ignore: avoid_print
     print('POC2 photo=${photo.length}B  file=${file.length}B  '
-        'applied=1 entry, photo identical');
+        'applied=1 entry, photo identical, signer=${v.delta!.signerId}');
   });
 
   test('2. tampered payload is rejected', () async {
     final photo = processPhoto(await _sourceImage())!;
-    final file = _delta(photo).toFileJson();
+    final file = await _signed(trust, photo);
     final map = jsonDecode(file) as Map<String, dynamic>;
     (map['upserts'] as List).first['name'] = 'Fake Product';
-    final v = CatalogDelta.verify(jsonEncode(map));
+    final v = await CatalogDelta.verify(jsonEncode(map),
+        directory: trust.directory);
     expect(v.ok, isFalse);
-    expect(v.error, 'bad signature');
+    expect(v.error, 'bad-signature');
   });
 
   test('3. unsigned file is rejected', () async {
     final photo = processPhoto(await _sourceImage())!;
-    final file = _delta(photo).toFileJson();
+    final file = await _signed(trust, photo);
     final map = (jsonDecode(file) as Map<String, dynamic>)..remove('signature');
-    final v = CatalogDelta.verify(jsonEncode(map));
+    final v = await CatalogDelta.verify(jsonEncode(map),
+        directory: trust.directory);
     expect(v.ok, isFalse);
-    expect(v.error, 'missing signature');
+    expect(v.error, 'missing-signature');
   });
 
-  test('4. apply is idempotent', () async {
+  test('4. an unknown signer is rejected', () async {
+    final photo = processPhoto(await _sourceImage())!;
+    final stranger = await Signing.generateSigner();
+    final file = await Signing.signArtifactFile(
+        _delta(photo, signerId: 'ghost').toPayload(), stranger);
+    final v = await CatalogDelta.verify(file, directory: trust.directory);
+    expect(v.ok, isFalse);
+    expect(v.error, 'unknown-signer');
+  });
+
+  test('5. a salesman cannot push a catalog delta', () async {
+    final photo = processPhoto(await _sourceImage())!;
+    final file = await _signed(trust, photo, signerId: SigningTrust.salesmanId);
+    final v = await CatalogDelta.verify(file, directory: trust.directory);
+    expect(v.ok, isFalse);
+    expect(v.error, 'forbidden-role');
+  });
+
+  test('6. apply is idempotent', () async {
     final photo = processPhoto(await _sourceImage())!;
     final repo = _MemoryRepo();
-    final v = CatalogDelta.verify(_delta(photo).toFileJson());
+    final v = await CatalogDelta.verify(await _signed(trust, photo),
+        directory: trust.directory);
     await v.delta!.apply(repo);
     final first = await repo.get(_barcode);
     await v.delta!.apply(repo);

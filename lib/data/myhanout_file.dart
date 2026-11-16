@@ -4,13 +4,15 @@ import 'catalog_delta.dart';
 import 'catalog_db.dart';
 import 'db.dart';
 import 'settings_service.dart';
+import 'signers_directory.dart';
+import 'signing.dart';
 
 /// Entry point for `.myhanout` catalog delta files.
 ///
 /// Android routes a VIEW intent for such a file to [MainActivity], which
 /// captures the URI and exposes it over the `myhanout/view` method channel.
-/// This class reads the file, verifies its signature + shop binding, and
-/// applies it to the local catalog — all offline.
+/// This class reads the file, verifies the signer against the local signers
+/// directory, and applies it to the catalog — all offline.
 class MyhanoutFile {
   static const MethodChannel _channel = MethodChannel('myhanout/view');
 
@@ -39,14 +41,31 @@ class MyhanoutFile {
     return applyJson(json, settings: settings);
   }
 
-  /// Verifies a `.myhanout` payload against the active shop and applies it.
+  /// Verifies a `.myhanout` payload against the signers directory and applies it.
   ///
   /// [settings] is injected; it defaults to the production store so the POC
-  /// tests and the launch-intent path need no setup.
-  static Future<String> applyJson(String json, {SettingsService? settings}) async {
+  /// tests and the launch-intent path need no setup. [directory] is injected by
+  /// tests; in production it is loaded from the baked/scanned store.
+  static Future<String> applyJson(
+    String json, {
+    SettingsService? settings,
+    SignersDirectory? directory,
+  }) async {
     final store = settings ?? const ConfigSettingsService();
     final shopKey = await store.getCurrentShopKey();
-    final verification = CatalogDelta.verify(json);
+
+    final SignersDirectory dir;
+    if (directory != null) {
+      dir = directory;
+    } else {
+      try {
+        dir = await SignersDirectoryLoader.load(settings: store);
+      } catch (e) {
+        return 'rejected: no usable signers directory ($e)';
+      }
+    }
+
+    final verification = await CatalogDelta.verify(json, directory: dir);
     if (!verification.ok) return 'rejected: ${verification.error}';
     final d = verification.delta!;
 
@@ -61,10 +80,17 @@ class MyhanoutFile {
 
     await d.apply(CatalogDb.instance);
     await store.setCatalogVersion(d.targetVersion);
+    await CatalogDb.instance.logSigner(
+      version: d.targetVersion,
+      signedBy: verification.signerName ?? d.signerId,
+      signedById: d.signerId,
+      entryCount: d.upserts.length,
+      appliedOnShop: shopKey,
+    );
     // Display-cache refresh: fill the photo of matching inventory rows that
     // have none. Never touches price/stock/name.
     var refreshed = 0;
-    for (final e in verification.delta!.upserts) {
+    for (final e in d.upserts) {
       if (e.photo == null) continue;
       refreshed += await Db.applyCatalogPhoto(
         shopKey,

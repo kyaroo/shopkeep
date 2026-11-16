@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../build_config.dart';
 import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
+import '../data/provisioning.dart';
 import '../utils/slug.dart';
 import '../utils/app_log.dart';
 import '../data/sync_config.dart';
@@ -296,21 +297,48 @@ class ProvisioningQrDialog extends StatefulWidget {
 
 class _ProvisioningQrDialogState extends State<ProvisioningQrDialog> {
   int _ttlSeconds = defaultProvisioningTtlSeconds;
+  String? _token;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _regenerate();
+  }
+
+  Future<void> _regenerate() async {
+    const store = ConfigSettingsService();
+    final signerId = await store.getActiveSignerId();
+    final seed = signerId == null ? null : await store.getSignerKey(signerId);
+    if (!mounted) return;
+    if (signerId == null || seed == null) {
+      setState(() => _error = 'no signer key on this device');
+      return;
+    }
+    final token = await ShopProvisioningService.buildProvisioningToken(
+      widget.shopKey,
+      widget.businessName,
+      signerId: signerId,
+      privateSeed: seed,
+      ttlSeconds: _ttlSeconds,
+    );
+    if (mounted) setState(() => _token = token);
+  }
 
   @override
   Widget build(BuildContext context) {
     // Re-signed on every TTL change: the QR is only ever shown, never persisted.
-    final token = ShopProvisioningService.buildProvisioningToken(
-      widget.shopKey,
-      widget.businessName,
-      ttlSeconds: _ttlSeconds,
-    );
+    final token = _token;
     return AlertDialog(
       title: Text('shopCreated'.tr()),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          QrImageView(data: token, size: 200),
+          if (_error != null)
+            Text(_error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error))
+          else if (token != null)
+            QrImageView(data: token, size: 200),
           const SizedBox(height: 8),
           SelectableText(widget.shopKey,
               style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -327,7 +355,10 @@ class _ProvisioningQrDialogState extends State<ProvisioningQrDialog> {
             value: _ttlSeconds,
             isExpanded: true,
             onChanged: (v) {
-              if (v != null) setState(() => _ttlSeconds = v);
+              if (v != null) {
+                setState(() => _ttlSeconds = v);
+                _regenerate();
+              }
             },
             items: provisioningTtlChoices.entries
                 .map((e) => DropdownMenuItem<int>(

@@ -26,6 +26,25 @@ abstract class SettingsService {
   Future<int> getCatalogVersion();
   Future<void> setCatalogVersion(int value);
 
+  /// Scanned signers-directory override (verbatim envelope).
+  Future<String?> getSignersEnvelope();
+  Future<void> saveSignersEnvelope(String value);
+
+  /// Who provisioned a shop (attribution).
+  Future<String?> getProvisionedBy(String shopKey);
+  Future<String?> getProvisionedById(String shopKey);
+  Future<void> saveProvisionedBy(String shopKey, String name, String signerId);
+
+  /// Provisioning nonce replay guard.
+  Future<bool> isNonceUsed(String nonce);
+  Future<void> markNonceUsed(String nonce, Duration ttl);
+
+  /// This device's own signer keypair.
+  Future<List<int>?> getSignerKey(String signerId);
+  Future<void> saveSignerKey(String signerId, List<int> seed);
+  Future<String?> getActiveSignerId();
+  Future<void> setActiveSignerId(String value);
+
   Future<bool> getAdminMode();
   Future<void> setAdminMode(bool value);
 }
@@ -73,6 +92,48 @@ class ConfigSettingsService implements SettingsService {
 
   @override
   Future<void> setCatalogVersion(int value) => Config.setCatalogVersion(value);
+
+  @override
+  Future<String?> getSignersEnvelope() => Config.getSignersEnvelope();
+
+  @override
+  Future<void> saveSignersEnvelope(String value) =>
+      Config.saveSignersEnvelope(value);
+
+  @override
+  Future<String?> getProvisionedBy(String shopKey) =>
+      Config.getProvisionedBy(shopKey);
+
+  @override
+  Future<String?> getProvisionedById(String shopKey) =>
+      Config.getProvisionedById(shopKey);
+
+  @override
+  Future<void> saveProvisionedBy(
+          String shopKey, String name, String signerId) =>
+      Config.saveProvisionedBy(shopKey, name, signerId);
+
+  @override
+  Future<bool> isNonceUsed(String nonce) => Config.isNonceUsed(nonce);
+
+  @override
+  Future<void> markNonceUsed(String nonce, Duration ttl) =>
+      Config.markNonceUsed(nonce, ttl);
+
+  @override
+  Future<List<int>?> getSignerKey(String signerId) =>
+      Config.getSignerKey(signerId);
+
+  @override
+  Future<void> saveSignerKey(String signerId, List<int> seed) =>
+      Config.saveSignerKey(signerId, seed);
+
+  @override
+  Future<String?> getActiveSignerId() => Config.getActiveSignerId();
+
+  @override
+  Future<void> setActiveSignerId(String value) =>
+      Config.setActiveSignerId(value);
 
   @override
   Future<bool> getAdminMode() => Config.getAdminMode();

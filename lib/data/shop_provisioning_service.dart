@@ -54,26 +54,27 @@ class ShopProvisioningService {
     return finalKey;
   }
 
-  /// Builds the signed provisioning QR payload for a shop.
+  /// Builds the signed provisioning QR envelope for a shop.
   ///
-  /// [ttlSeconds] travels INSIDE the token (B4): the receiving device reads it
-  /// and decides how long the code stays valid, so one shop can be given a
+  /// [signerId] must be in the directory with a role allowed to provision
+  /// (founder / admin / salesman); [privateSeed] is that signer's key.
+  /// [ttlSeconds] travels INSIDE the token (B4), so one shop can be given a
   /// 30-minute code and another a 7-day one without a server round-trip.
-  static String buildProvisioningToken(String shopKey, String businessName,
-      {int ttlSeconds = defaultProvisioningTtlSeconds}) {
-    final payload = {
-      'shop_key': shopKey,
-      'business_name': businessName,
-      'issued_at': DateTime.now().millisecondsSinceEpoch,
-      'nonce': Provisioning.generateShopKey(length: 8),
-      'ttl_seconds': ttlSeconds,
-    };
-    return Provisioning.sign(payload);
-  }
+  static Future<String> buildProvisioningToken(
+    String shopKey,
+    String businessName, {
+    required String signerId,
+    required List<int> privateSeed,
+    int ttlSeconds = defaultProvisioningTtlSeconds,
+  }) =>
+      Provisioning.buildProvisioningToken(
+        shopKey,
+        businessName,
+        signerId: signerId,
+        privateSeed: privateSeed,
+        ttlSeconds: ttlSeconds,
+      );
 }
-
-/// Default QR validity when the caller does not choose one (30 minutes).
-const int defaultProvisioningTtlSeconds = 1800;
 
 /// The TTL choices offered when generating a provisioning QR.
 /// Key = `ttl_seconds` placed in the token, value = i18n key.

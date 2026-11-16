@@ -7,6 +7,7 @@ import '../build_config.dart';
 import '../app_state.dart';
 import '../utils/slug.dart';
 import '../data/provisioning.dart';
+import '../data/signers_directory.dart';
 import 'qr_scan_page.dart';
 
 /// Shop entry screen: the shopkeeper enters the shop code provided by the admin.
@@ -36,16 +37,23 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   }
 
   Future<void> _handleToken(String token) async {
+    void reject() {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('invalidShopCode'.tr())),
+        );
+      }
+    }
+
     try {
-      final payload = Provisioning.verify(token);
-      if (payload == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('invalidShopCode'.tr())),
-          );
-        }
+      final directory =
+          await SignersDirectoryLoader.load(settings: _settings);
+      final result = await Provisioning.verify(token, directory: directory);
+      if (!result.ok) {
+        reject();
         return;
       }
+      final payload = result.payload!;
       final code = (payload['shop_key'] as String?)?.trim().toLowerCase();
       final name = payload['business_name'] as String?;
       // The key becomes a filename (myhanout_<key>.db) — reject anything that is
@@ -55,26 +63,39 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
           name == null ||
           name.isEmpty ||
           !isValidShopKey(code)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('invalidShopCode'.tr())),
-          );
-        }
+        reject();
         return;
       }
+
+      // Replay guard: a QR is single-use within its TTL.
+      final nonce = payload['nonce'] as String?;
+      if (nonce != null && nonce.isNotEmpty) {
+        if (await _settings.isNonceUsed(nonce)) {
+          reject();
+          return;
+        }
+        final ttl = payload['ttl_seconds'];
+        await _settings.markNonceUsed(
+          nonce,
+          Duration(seconds: ttl is int && ttl > 0 ? ttl : 1800),
+        );
+      }
+
       await _settings.setCurrentShopKey(code);
       await _settings.saveBusinessName(name);
+      await _settings.saveProvisionedBy(
+        code,
+        result.signer?.name ?? '',
+        result.signer?.id ?? '',
+      );
       if (!mounted) return;
       context.read<AppState>().shopKey = code;
       context.read<AppState>().businessName = name;
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('invalidShopCode'.tr())),
-        );
-      }
+      reject();
     }
   }
+
   Future<void> _joinShop() async {
     final code = _codeController.text.trim().toLowerCase();
     if (code.isEmpty) return;

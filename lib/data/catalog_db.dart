@@ -29,7 +29,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
     await CatalogSeedLoader.ensureSeeded(path);
     _db = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE products (
@@ -53,6 +53,7 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
             deleted_at   INTEGER NOT NULL
           )
         ''');
+        await _createSignerLog(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -67,9 +68,25 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
           await db.execute('ALTER TABLE products ADD COLUMN name_ar TEXT');
           await db.execute('ALTER TABLE products ADD COLUMN name_en TEXT');
         }
+        if (oldVersion < 4) {
+          await _createSignerLog(db);
+        }
       },
     );
   }
+
+  /// Attribution: one row per applied delta — who pushed what, when, on which shop.
+  static Future<void> _createSignerLog(Database db) => db.execute('''
+        CREATE TABLE IF NOT EXISTS signer_log (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          version       INTEGER NOT NULL,
+          signed_by     TEXT NOT NULL,
+          signed_by_id  TEXT NOT NULL,
+          applied_at    INTEGER NOT NULL,
+          entry_count   INTEGER NOT NULL,
+          applied_on_shop TEXT NOT NULL
+        )
+      ''');
 
   Future<Database> get _database async {
     await init();
@@ -175,5 +192,31 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
     }
     final result = await db.rawQuery('SELECT COUNT(*) AS c FROM products $where', args);
     return (result.first['c'] as int?) ?? 0;
+  }
+
+  // ---- Attribution log (who pushed what, when) ----
+
+  Future<void> logSigner({
+    required int version,
+    required String signedBy,
+    required String signedById,
+    required int entryCount,
+    required String appliedOnShop,
+  }) async {
+    final db = await _database;
+    await db.insert('signer_log', {
+      'version': version,
+      'signed_by': signedBy,
+      'signed_by_id': signedById,
+      'applied_at': DateTime.now().millisecondsSinceEpoch,
+      'entry_count': entryCount,
+      'applied_on_shop': appliedOnShop,
+    });
+  }
+
+  Future<List<Map<String, Object?>>> signerLog({int limit = 50}) async {
+    final db = await _database;
+    return db.query('signer_log',
+        orderBy: 'applied_at DESC', limit: limit);
   }
 }
