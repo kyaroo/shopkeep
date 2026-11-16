@@ -14,18 +14,25 @@ class SignersDirectoryLoader {
   static const String assetPath = 'assets/signers.json';
 
   /// The active directory: the persisted override if it verifies, else baked.
-  static Future<SignersDirectory> load({SettingsService? settings}) async {
+  ///
+  /// [rootPublicKey] defaults to the baked root; tests substitute their own.
+  static Future<SignersDirectory> load({
+    SettingsService? settings,
+    List<int>? rootPublicKey,
+  }) async {
     final store = settings ?? const ConfigSettingsService();
+    final root = rootPublicKey ?? Signing.bakedRootPublicKey;
     final override = await store.getSignersEnvelope();
     if (override != null && override.isNotEmpty) {
       try {
-        return await Signing.verifyDirectory(override);
+        return await Signing.verifyDirectoryWith(override, root);
       } catch (_) {
         // Tampered / corrupt / wrong-root override: fall back to the baked
         // directory. Fail closed for the override, never for the app.
       }
     }
-    return Signing.verifyDirectory(await rootBundle.loadString(assetPath));
+    return Signing.verifyDirectoryWith(
+        await rootBundle.loadString(assetPath), root);
   }
 
   /// Adopts [envelope] if it verifies against the root key **and** its version
@@ -33,16 +40,23 @@ class SignersDirectoryLoader {
   static Future<SignersDirectory?> replace(
     String envelope, {
     SettingsService? settings,
+    List<int>? rootPublicKey,
   }) async {
     final store = settings ?? const ConfigSettingsService();
+    final root = rootPublicKey ?? Signing.bakedRootPublicKey;
     final SignersDirectory candidate;
     try {
-      candidate = await Signing.verifyDirectory(envelope);
+      candidate = await Signing.verifyDirectoryWith(envelope, root);
     } catch (_) {
       return null; // bad signature / wrong root / malformed
     }
-    final current = await load(settings: store);
-    if (candidate.version <= current.version) return null;
+    SignersDirectory? current;
+    try {
+      current = await load(settings: store, rootPublicKey: root);
+    } catch (_) {
+      current = null; // no usable directory yet — the candidate becomes the first
+    }
+    if (current != null && candidate.version <= current.version) return null;
     await store.saveSignersEnvelope(envelope);
     return candidate;
   }

@@ -59,6 +59,34 @@ class SigningTrust {
 
   List<int> seed(String signerId) => seeds[signerId]!;
 
+  /// A directory with a chosen version and/or signer set, signed by this
+  /// trust's root. Used to exercise replace/removal/replay cases.
+  Future<SignersDirectory> buildDirectory({
+    int version = 7,
+    List<String> signerIds = const [founderAdminId, adminId, salesmanId],
+  }) async {
+    final envelope = await Signing.signPayload(<String, dynamic>{
+      'format': ArtifactFormat.signers,
+      'alg': Signing.algorithm,
+      'version': version,
+      'updated_at': 1718000000000,
+      'signers': [
+        for (final id in signerIds)
+          {
+            'id': id,
+            'name': id,
+            'role': switch (id) {
+              founderAdminId => 'founder',
+              salesmanId => 'salesman',
+              _ => 'admin',
+            },
+            'public_key': base64Url.encode(await Signing.publicKeyFromSeed(seed(id))),
+          },
+      ],
+    }, rootPrivate);
+    return Signing.verifyDirectoryWith(envelope, rootPublic);
+  }
+
   /// A signed catalog delta file for [signerId].
   Future<String> deltaFile(
     String signerId, {

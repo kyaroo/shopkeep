@@ -123,6 +123,11 @@ class Signing {
   static const int publicKeyLength = 32;
 
   static final Ed25519 _ed = Ed25519();
+
+  /// The baked root public key bytes. Tests may substitute their own root via
+  /// [SignersDirectoryLoader.load]'s `rootPublicKey`.
+  static List<int> get bakedRootPublicKey =>
+      base64Url.decode(base64Url.normalize(kRootPublicKeyB64));
   static final List<int> _rootPublic =
       base64Url.decode(base64Url.normalize(kRootPublicKeyB64));
 
@@ -406,7 +411,9 @@ class _StrictJsonParser {
   }
 
   String _string() {
-    if (src[i] != '"') throw const FormatException('expected string');
+    if (i >= src.length || src[i] != '"') {
+      throw const FormatException('expected string');
+    }
     i++;
     final sb = StringBuffer();
     while (i < src.length) {

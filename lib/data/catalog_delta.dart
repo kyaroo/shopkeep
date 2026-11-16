@@ -82,8 +82,11 @@ class CatalogDelta {
     final List<int> signature;
     try {
       (payload, signature) = Signing.splitArtifact(json);
-    } on FormatException catch (e) {
-      return DeltaVerification.failed(e.message);
+    } catch (e) {
+      // Malformed input must never escape as an exception: this is a security
+      // boundary that consumes untrusted QR/file content.
+      return DeltaVerification.failed(
+          e is FormatException ? e.message : 'malformed artifact');
     }
     if (payload['format'] != format) {
       return DeltaVerification.failed('unknown format');
