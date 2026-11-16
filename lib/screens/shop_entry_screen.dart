@@ -36,6 +36,30 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     await _handleToken(token);
   }
 
+  /// Trust-material channel: the signers directory travels by QR, exactly as
+  /// the provisioning QR does. Bulk data travels as `.myhanout` files, so this
+  /// is the only place a directory can change. The replacement must be
+  /// root-signed and strictly newer, or [SignersDirectoryLoader.replace]
+  /// refuses it.
+  Future<void> _scanSignersDirectory() async {
+    final token = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const QrScanPage()),
+    );
+    if (token == null || token.isEmpty || !mounted) return;
+    final adopted =
+        await SignersDirectoryLoader.replace(token, settings: _settings);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(adopted == null
+            ? 'signersDirectoryRejected'.tr()
+            : 'signersDirectoryUpdated'
+                .tr(namedArgs: {'version': '${adopted.version}'})),
+      ),
+    );
+  }
+
   Future<void> _handleToken(String token) async {
     void reject() {
       if (mounted) {
@@ -265,6 +289,10 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
               label: Text('scanQr'.tr()),
             ),
             const SizedBox(height: 8),
+            TextButton(
+              onPressed: _loading ? null : _scanSignersDirectory,
+              child: Text('scanSignersDirectory'.tr()),
+            ),
             ElevatedButton(
               onPressed: _loading ? null : _joinShop,
               child: _loading
