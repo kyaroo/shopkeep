@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import '../data/listing_import_file.dart';
 import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../build_config.dart';
@@ -34,6 +36,39 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     );
     if (token == null || token.isEmpty) return;
     await _handleToken(token);
+  }
+
+  /// B6 — the shopkeeper imports a listing bundle (price/stock) delivered by the
+  /// admin. Verification happens inside [ListingImportService] **before** any
+  /// write, so a bad file cannot disturb the shop's listing.
+  Future<void> _importListing() async {
+    final picked = await FilePicker.platform.pickFiles();
+    if (picked == null || picked.files.isEmpty || !mounted) return;
+    final path = picked.files.first.path;
+    if (path == null || !mounted) return;
+
+    setState(() => _loading = true);
+    final outcome =
+        await ListingImportFile.applyPath(path, settings: _settings);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    final message = outcome.ok
+        ? 'listingApplied'.tr(namedArgs: {
+            'inserted': '${outcome.merge!.inserted}',
+            'updated': '${outcome.merge!.updated}',
+            'unchanged': '${outcome.merge!.unchanged}',
+            'shop': outcome.shopKey!,
+          })
+        : 'listingRejected'.tr(namedArgs: {'error': outcome.error!});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
+    );
+
+    if (outcome.ok) {
+      // The bundle's signed shop_key selected the shop: enter the register.
+      context.read<AppState>().shopKey = outcome.shopKey!;
+    }
   }
 
   /// Trust-material channel: the signers directory travels by QR, exactly as
@@ -288,6 +323,18 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
               icon: const Icon(Icons.qr_code_scanner),
               label: Text('scanQr'.tr()),
             ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _loading ? null : _importListing,
+              icon: const Icon(Icons.upload_file),
+              label: Text('importShop'.tr()),
+            ),
+            const SizedBox(height: 4),
+            Text('importShopHint'.tr(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
             TextButton(
               onPressed: _loading ? null : _scanSignersDirectory,

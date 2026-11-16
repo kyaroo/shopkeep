@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'catalog_delta.dart';
 import 'catalog_db.dart';
 import 'db.dart';
+import 'listing_import_file.dart';
 import 'settings_service.dart';
 import 'signers_directory.dart';
 import 'signing.dart';
@@ -18,6 +19,9 @@ class MyhanoutFile {
 
   /// Handles the VIEW intent the app was launched with, if any.
   /// Returns a short human-readable outcome, or null when there was no file.
+  ///
+  /// Routing is by extension: `.myhanoutlisting` is a shop listing bundle
+  /// (verified and imported), anything else is treated as a catalog delta.
   static Future<String?> handleLaunchIntent({SettingsService? settings}) async {
     String? uri;
     try {
@@ -26,6 +30,11 @@ class MyhanoutFile {
       // Channel not available (tests, non-Android) — nothing to do.
     }
     if (uri == null || uri.isEmpty) return null;
+    if (ListingImportFile.isListingUri(uri)) {
+      final outcome =
+          await ListingImportFile.applyUri(uri, settings: settings);
+      return outcome.ok ? 'applied ${outcome.merge!.touched} row(s)' : 'rejected: ${outcome.error}';
+    }
     return applyUri(uri, settings: settings);
   }
 

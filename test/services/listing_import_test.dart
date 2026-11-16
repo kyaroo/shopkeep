@@ -49,6 +49,12 @@ void main() {
     await Db.open(_from);
     final handle = await Db.databaseHandle(_from);
     await handle.delete('products');
+    // The target shop must start empty too: `flutter test` shares one SQLite
+    // factory across files, so a leftover listing from another file would
+    // otherwise be counted as imported rows.
+    await Db.open(_to);
+    final target = await Db.databaseHandle(_to);
+    await target.delete('products');
     const rows = [
       ['0011210006508', 'Tabasco Habanero', 890, 12],
       ['6111053001673', 'Ain Atlas', 150, 0],
