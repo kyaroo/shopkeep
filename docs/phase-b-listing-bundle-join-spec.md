@@ -361,8 +361,9 @@ The implementer proves the spec by behavior, not by description:
 
 | # | Decision | Evidence |
 |---|---|---|
-| D1 | Listing bundle format = signed-free JSON, `myhanout-listing-v1` | Optional integrity (sha256+shop_key); no vendor-secret needed for shop-owned data |
-| D2 | No HMAC on the listing bundle | Catalog deltas carry *authoritative foreign data*; the listing is the shop's own, and signing a visible snapshot adds no protection |
+| D1 | Listing bundle format = JSON artifact file, `myhanout-listing-v1` (reopened by D10) | Artifact-file envelope like the catalog delta, so one verify path serves both |
+| D2 | ~~No HMAC on the listing bundle~~ — **superseded by D10** | Phase 1's keys and directory now exist, so the original reasoning no longer holds |
+| D10 | **Listing bundle is Ed25519-signed** by a `founder`/`admin` key and verified by the shopkeeper against the signers directory (user, 2026-11-16) | Closes the "anyone who can hand the shopkeeper a file can set its prices" gap for free, and gives listing changes attribution instead of none. Unsigned bundles are **rejected**, not warned about — consistent with D9 of the phase-1 spec (hard reject). Salesman keys may not sign a listing (provision-only). |
 | D3 | Import upserts only `price_cents`/`stock_qty` by `barcode` | Listing is the only owner of those fields; catalog delta must never write them (already enforced) |
 | D4 | Import never deletes | Bundle is a snapshot; deletes are explicit admin action |
 | D5 | Atomic import, one transaction per bundle, abort on any error | Prevent partial/corrupt listings |
