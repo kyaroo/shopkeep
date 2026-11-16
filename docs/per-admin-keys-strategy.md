@@ -15,6 +15,11 @@ has no HMAC).
 | D3 | **Server holds the signer registry**; the **shopkeeper makes no API call** — it verifies offline against a local copy. |
 | D4 | **Per-admin provisioning** — the QR records which admin provisioned the shop. |
 | D5 | **Attribution** — every applied change records who signed it. |
+| D6 | Registry is **fetched from the server** by the admin app (`GET /v1/signers`); the directory is built from it and signed by the founder. |
+| D7 | The founder holds **two** keys: a **root key** (signs directories only) and a **founder admin key** (signs artifacts, like any admin). |
+| D8 | Algorithm: **Ed25519**. |
+| D9 | **Hard reject** on an unknown signer — never accept-with-warning (that would require the artifact to carry its own key, i.e. self-registration). |
+| D10 | The shopkeeper **never makes an API call** — trust material comes from **QR validation on an admin's device**; no network, no server, at verify time. |
 
 ## 1. The problem
 
@@ -111,9 +116,22 @@ Payload/verify keep the existing canonical pattern (sign payload-minus-signature
 | **2** | Attribution (`signer_log`, `audit_log.changed_by`, push tracker) + listing bundle signing (closes C1) | 5 h |
 | **3** | Admin UI (create/approve/revoke, register, send directory) + server registry endpoints | 5 h |
 
-## 10. Open questions
+## 10. Resolved / open
 
-1. Does the admin app **fetch** the registry from the server, or is the directory built by hand?
-2. Stale directory on a shopkeeper: **hard reject** with a clear message (recommended) or accept-with-warning?
-3. Does the founder use the **root key** for provisioning too, or a separate founder admin key?
-4. Algorithm: **Ed25519** (recommended) or ECDSA P-256?
+**Resolved (2026-11-16):** registry fetched from the server (D6) · founder uses a founder
+admin key for artifacts and the root key for the directory (D7) · Ed25519 (D8) · unknown
+signer ⇒ hard reject (D9) · the shopkeeper never makes an API call (D10).
+
+**Open — what exactly travels by QR?** D10 says trust material comes from QR validation on
+an admin's device. Whether that covers *only trust material* or *all updates* changes the
+design:
+
+- **(i) Trust-by-QR** — the root/directory/signers reach the shopkeeper **only** by scanning
+  a QR shown on an admin's device (in person). Deltas and listing bundles still arrive as
+  files (they can be MBs with photos), but are only accepted if signed by a key the device
+  already trusts. *Recommended: practical and keeps the offline lock absolute.*
+- **(ii) Everything-by-QR** — deltas too. Impractical: a photo-bearing delta is KBs–MBs,
+  far beyond QR capacity.
+- **(iii) Trust-by-file** — the directory arrives as a root-signed file over WhatsApp, like
+  deltas. Cheaper operationally, but trust material then travels the same untrusted channel
+  as the data.
