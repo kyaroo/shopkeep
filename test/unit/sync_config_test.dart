@@ -7,6 +7,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myhanout/data/sync_config.dart';
 import 'package:myhanout/data/catalog_sync_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 void main() {
@@ -33,9 +34,14 @@ void main() {
       expect(cfg.isConfigured, isTrue);
     });
 
-    test('defaultUrl and defaultToken are non-empty constants', () {
+    test('no baked token default: load() with no prefs yields no token',
+        () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+      final loaded = await SyncConfig.load();
+      expect(loaded.token, isNull, reason: 'the token must come from settings');
+      expect(loaded.isConfigured, isFalse);
       expect(SyncConfig.defaultUrl, isNotEmpty);
-      expect(SyncConfig.defaultToken, isNotEmpty);
     });
 
     test('client() returns a CatalogSyncClient and is re-created per call', () {

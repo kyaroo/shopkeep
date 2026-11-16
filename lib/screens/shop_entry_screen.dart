@@ -48,7 +48,13 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
       }
       final code = (payload['shop_key'] as String?)?.trim().toLowerCase();
       final name = payload['business_name'] as String?;
-      if (code == null || code.isEmpty || name == null || name.isEmpty) {
+      // The key becomes a filename (myhanout_<key>.db) — reject anything that is
+      // not a plain slug, even from a QR.
+      if (code == null ||
+          code.isEmpty ||
+          name == null ||
+          name.isEmpty ||
+          !isValidShopKey(code)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('invalidShopCode'.tr())),
@@ -72,6 +78,17 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
   Future<void> _joinShop() async {
     final code = _codeController.text.trim().toLowerCase();
     if (code.isEmpty) return;
+    // The typed key becomes a filename (myhanout_<key>.db). Reject separators,
+    // dots and traversal before it reaches Db.open.
+    if (!isValidShopKey(code)) {
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('invalidShopCode'.tr())),
+        );
+      }
+      return;
+    }
     setState(() => _loading = true);
 
     if (kIsAdmin) {

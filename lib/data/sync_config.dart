@@ -9,10 +9,9 @@ class SyncConfig {
   static const _kLastSync = 'sync_last_synced_at';
   static const _kDevice = 'sync_device_id';
 
-  // Centralized defaults (override via SyncConfig.load(defaultUrl:/defaultToken:) for dev).
+  // Default server URL. NOT a secret — but the token is: it is entered in
+  // Settings and persisted per install, never baked into the binary.
   static const String defaultUrl = 'https://catalog.myhanout.ma';
-  static const String defaultToken =
-      'a07d7ef88372d390615a90f1c8acfbcc89724f65a11283cd77e59a7c148b7e9c';
 
   String? url;
   String? token;
@@ -30,11 +29,12 @@ class SyncConfig {
       (url != null && url!.trim().isNotEmpty) &&
       (token != null && token!.trim().isNotEmpty);
 
-  static Future<SyncConfig> load({String? defaultUrl, String? defaultToken}) async {
+  static Future<SyncConfig> load({String? defaultUrl}) async {
     final prefs = await SharedPreferences.getInstance();
     return SyncConfig(
       url: prefs.getString(_kUrl) ?? defaultUrl ?? SyncConfig.defaultUrl,
-      token: prefs.getString(_kToken) ?? defaultToken ?? SyncConfig.defaultToken,
+      // No baked default: an unset token means "not configured".
+      token: prefs.getString(_kToken),
       lastSyncedAt: prefs.getInt(_kLastSync) ?? 0,
       deviceId: prefs.getString(_kDevice) ?? 'mapper-owner-01',
     );
@@ -60,7 +60,9 @@ class SyncConfig {
   static CatalogSyncClient clientFrom(SyncConfig cfg) {
     return CatalogSyncClient(
       baseUrl: (cfg.url ?? defaultUrl).trim(),
-      token: (cfg.token ?? defaultToken).trim(),
+      // Callers must check isConfigured first; an empty token is never a valid
+      // fallback for a baked secret.
+      token: (cfg.token ?? '').trim(),
       deviceId: cfg.deviceId,
     );
   }

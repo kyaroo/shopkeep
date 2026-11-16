@@ -5,6 +5,7 @@ import '../models/catalog_prefill.dart';
 import '../data/catalog_db.dart';
 import '../data/sync_config.dart';
 import '../data/sync_service.dart';
+import '../build_config.dart';
 
 /// App-wide catalog state. UI talks to this; this talks to [CatalogRepository].
 /// Swapping SQLite for the remote API later changes only the repository the
@@ -65,6 +66,10 @@ class CatalogProvider with ChangeNotifier {
   /// This does NOT create an owner entry; it only seeds a local cache row and
   /// a prefill. The owner still taps Save to author it (origin=owner).
   Future<CatalogPrefill?> resolveFromServer(String barcode) async {
+    // Admin-only. The shopkeeper flavor must never reach the server: it resolves
+    // barcodes from its local catalog (see resolveFromCatalog / browseLocal).
+    // `kIsAdmin` is a build-time const, so this branch is tree-shaken away.
+    if (!kIsAdmin) return null;
     final config = _sync.syncConfig ?? await SyncConfig.load();
     if (!config.isConfigured) return null;
     final client = config.client();
@@ -121,6 +126,8 @@ class CatalogProvider with ChangeNotifier {
     int limit = 50,
     int offset = 0,
   }) async {
+    // Admin-only: the shopkeeper browses its local catalog (browseLocal).
+    if (!kIsAdmin) return null;
     final config = _sync.syncConfig ?? await SyncConfig.load();
     if (!config.isConfigured) return null;
     final client = config.client();
@@ -244,6 +251,8 @@ class CatalogProvider with ChangeNotifier {
 
   /// Delegates to [SyncService]; the sync state lives there.
   Future<bool> syncNow() async {
+    // Admin-only: the shopkeeper never pushes to the server.
+    if (!kIsAdmin) return false;
     final config = _sync.syncConfig ?? await SyncConfig.load();
     return _sync.syncNow(repo: _deltaRepo, config: config, entries: _entries);
   }

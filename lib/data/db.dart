@@ -5,6 +5,7 @@ import 'package:path/path.dart' show join;
 import 'package:sqflite/sqflite.dart';
 
 import '../data/audit.dart';
+import '../utils/slug.dart' show isValidShopKey;
 
 import '../models/product.dart';
 import '../models/sale.dart';
@@ -77,8 +78,18 @@ class Db {
 
   static void _expire(String shopKey) => _openHandles.remove(shopKey);
 
-  static Future<String> shopDbPath(String shopKey) async =>
-      join(await getDatabasesPath(), 'myhanout_$shopKey.db');
+  static Future<String> shopDbPath(String shopKey) async {
+    // The key becomes a filename (`myhanout_<key>.db`); reject anything that
+    // could escape the databases directory or clobber another shop's file.
+    if (!isValidShopKey(shopKey)) {
+      throw ArgumentError.value(
+        shopKey,
+        'shopKey',
+        'must be a slug: [a-z0-9][a-z0-9_-]{0,62}',
+      );
+    }
+    return join(await getDatabasesPath(), 'myhanout_$shopKey.db');
+  }
 
   static Future<File> shopDbFile(String shopKey) async =>
       File(await shopDbPath(shopKey));
