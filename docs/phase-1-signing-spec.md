@@ -244,3 +244,28 @@ salesman management UI, server registry endpoints, secure key storage.
 | **Silent auto-apply of VIEW intents** | Signature still gates it; confirmation dialog deferred. |
 | **`business_name` spoofable** | Display-only; the shopkeeper reads it from the screen they face. |
 | **Dependency** | `cryptography` is pure Dart; verify release size/startup before shipping. |
+
+## 12. Verification evidence (as of 2026-11-16)
+
+`bash tool/verify_retired_secrets.sh` re-extracts the retired values from git
+history on every run and prints **counts only**:
+
+| Check | Result |
+|---|---|
+| working tree (`lib/ assets/ tool/ test/`) — HMAC / baked token / root private key | **0 / 0 / 0 hits** |
+| `app-shopkeeper-release.apk` — HMAC / baked token | **0 / 0 hits** |
+| `app-admin-release.apk` — HMAC / baked token | **0 / 0 hits** |
+| `app-shopkeeper-release.apk` — `openfoodfacts.org`, `upcitemdb`, `mymemory`, `catalog.myhanout.ma` | **0 hits each** |
+| git history | HMAC in 5 commits, token in 8 — **expected and accepted**: history cannot be rewritten without a force-push, so the hard cutover (not history editing) is the mitigation. Old APKs remain readable as untrusted. |
+
+Criteria closed by tests: 2, 3, 4, 5, 7, 8 (accessor + persistence; the
+display is phase-2 attribution UI), 9, 10, 11, 12, 13, 14, 16, 17.
+Criterion 15 (cross-language vector) is **not applicable**: every producer and
+consumer is the same Dart `Signing.canonicalize`, and no non-Dart producer
+exists. Criterion 18 (release keystore) is open — it needs a build-infra
+decision, not a code change.
+
+Additional defect found and fixed while closing these: the strict JSON parser
+indexed past the end of the input (`RangeError` instead of `FormatException`),
+so malformed content could have escaped `verify` as an exception. `verify` now
+also catches anything that still escapes.
