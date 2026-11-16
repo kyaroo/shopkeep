@@ -24,7 +24,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   of truth; the shopkeeper keeps a local copy.
 
 ## Mainline (verified)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `f1468cf`, pushed to
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` pushed to
   `github.com:kyaroo/shopkeep.git`, 0 ahead.
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **126/126**
@@ -60,7 +60,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 ## Open — app
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **B0** | Listing bundle + join rework specification | 2 h (S) | **spec written** — `docs/phase-b-listing-bundle-join-spec.md` (366 l., **untracked**); to review + commit |
+| **B0** | Listing bundle + join rework specification | ✅ 2h (S) | **reviewed + committed** — blocking B-1 (new-row `name`) fixed, F-1…F-5 corrected; §1.2 no-HMAC left **open** |
 | **B1/B3/B2/B6** | Listing bundle export/import + upsert + join rework | 18 h (L) | after B0 is committed |
 
 ## Open — server
