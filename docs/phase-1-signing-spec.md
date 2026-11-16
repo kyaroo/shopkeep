@@ -1,8 +1,10 @@
-# Phase 1 — Per-admin signing keys (root + admins, QR-distributed directory)
+# Phase 1 — Per-admin signing keys (root + admins + salesman, QR-distributed directory)
 
 **Status:** written spec (no code) · **Owner:** personal · **Date:** 2026-11-16
 **Gates:** the ~8 h phase-1 implementation.
-**Parent:** `docs/per-admin-keys-strategy.md` (decisions D1–D10, distribution option (i)).
+**Parent:** `docs/per-admin-keys-strategy.md` (D1–D10, distribution option (i)).
+**Review:** `docs/phase-1-signing-review.md` — all Critical/High findings folded in below;
+residual items are listed explicitly in §11 rather than dropped.
 **Evidence:** `test/poc/ed25519_poc_test.dart` — Ed25519 round-trip, tamper and wrong-key
 rejection, measured sizes (public 32 B · private 32 B · signature 64 B). Dependency
 `cryptography` added and verified under `flutter test`.
@@ -16,135 +18,229 @@ rejection, measured sizes (public 32 B · private 32 B · signature 64 B). Depen
 | **root** | founder | the signers directory only | founder's device | **baked** into both APKs |
 | **founder-admin** | founder | provisioning QR, delta, listing bundle | founder's device | in the directory |
 | **admin-N** | that admin | same as founder-admin | that admin's device | in the directory |
+| **salesman-N** | that salesman | provisioning QR **only** | that salesman's device | in the directory |
+
+**Capabilities** (locked 2026-11-16):
+
+| Role | Provision / join shops | Push catalog delta | Sign the directory |
+|---|---|---|---|
+| `founder` | ✓ | ✓ | ✓ (root key) |
+| `admin` | ✓ | ✓ | ✗ |
+| `salesman` | ✓ | **✗** | ✗ |
 
 The root key never signs shop-facing artifacts, so it is used rarely ⇒ less exposure.
-**No private key is ever committed, logged or put in an APK.**
+A **salesman** is the in-person role: it joins shops and carries the directory QR, and it
+cannot touch catalog economics. **No private key is ever committed, logged or put in an APK.**
 
 ## 2. Signers directory
 
-`assets/signers.json` — baked initially, replaced only by scanning a directory QR.
+`assets/signers.json` holds **the signed envelope**, not a decoded payload, so it can be
+re-verified on every load.
 
 ```jsonc
+// payload (the bytes that get signed)
 {
-  "version": 3,                       // monotonic; a lower version is ignored
-  "updated_at": 1718000000000,
+  "format": "myhanout-signers-v1",
+  "alg": "ed25519",
+  "version": 3,                          // int, monotonic; lower/equal is a no-op
+  "updated_at": 1718000000000,             // int, epoch ms; displayed, never used to expire
   "signers": [
     {"id": "founder-admin", "name": "Manu", "role": "founder",
-     "public_key": "<base64url 32 B>"},
-    {"id": "admin-2", "name": "Sara", "role": "admin",
-     "public_key": "<base64url 32 B>"}
+     "public_key": "<base64url, 32 B>"},
+    {"id": "salesman-1", "name": "Omar", "role": "salesman",
+     "public_key": "<base64url, 32 B>"}
   ]
 }
+// envelope on disk = base64url(payloadJson) . base64url(ed25519_signature)
 ```
 
-Envelope (same shape as the existing QR token):
-`base64url(payloadJson) . base64url(ed25519_signature)` — signed by the **root** key.
-Verified against the **baked root public key**, which ships as a Dart const in
-`lib/data/signing.dart` (a public key, so not a secret).
+Field rules: `id` unique, `[a-z0-9][a-z0-9_-]{0,62}`; `name` ≤ 80 chars, display-only;
+`role ∈ {founder, admin, salesman}`; `public_key` exactly 32 B base64url; `version` ≥ 1.
+**Duplicate `id` or a bad key length ⇒ reject the whole directory.** Verified against the
+**baked root public key** (a Dart const in `lib/data/signing.dart` — public, not a secret).
 
-## 3. Sign / verify API
+## 3. Canonical bytes and the sign/verify API
+
+**Canonical JSON** (both sides must produce identical bytes):
+UTF-8 · **keys sorted** · **no whitespace** · integers only for versions/timestamps ·
+**duplicate keys rejected** · sign the **exact bytes transmitted** (for the dotted QR
+envelope, sign `payloadJson` itself — never a re-encoding).
 
 `lib/data/signing.dart` (new):
-- `Future<SignersDirectory> loadDirectory()` — baked asset, then the scanned override.
-- `VerifyResult verifyArtifact(String json, SignersDirectory dir)` — returns
-  `{ok, signer, error}` where `error ∈ {not-json, bad-signature, unknown-signer, tampered}`.
+- `Future<SignersDirectory> loadDirectory()` — baked asset, else the persisted override
+  **re-verified against the baked root key on every load**; on any mismatch, fall back to
+  the baked directory (fail-closed for the override, never for the app).
+- `VerifyResult verifyArtifact(String json, {required SignersDirectory dir,
+  required String expectedFormat, required Set<String> allowedRoles})` →
+  `{ok, signer, error}` with
+  `error ∈ {not-json, unknown-format, missing-signature, bad-signature, unknown-signer,
+  forbidden-role, malformed-field, stale-version}`.
 - `Future<String> signArtifact(Map<String, dynamic> payload, SignerKey key)` — appends
   `signature` last.
-- Key generation + storage: `generateSigner()`, private key persisted in the app's private
-  store. **Phase 1 uses `shared_preferences`** (device sandbox is the boundary); secure
-  storage (Keystore/Keychain) is a later hardening, noted in §8.
+- `generateSigner()` — keypair generated **on the device**, private half persisted in the
+  app's private store. **Phase 1 uses `shared_preferences`** (see §11); Keystore/Keychain
+  later.
 
-## 4. Provisioning QR (per-admin)
+## 4. Authorization (roles)
+
+Every artifact carries `format`; the verifier resolves the signer's `role` from the
+directory and checks it against the artifact's capability table (§1). Failure is a
+`forbidden-role` rejection, e.g. *"Omar is a salesman and cannot push catalog changes"*.
+Routing happens on `format` **before** any signature work, so a directory envelope can never
+be fed to the provisioning verifier or vice versa.
+
+## 5. Provisioning QR
 
 ```jsonc
 {
+  "format": "myhanout-provision-v1",
+  "alg": "ed25519",
   "shop_key": "maison-du-marche",
   "business_name": "Maison du Marché",
   "issued_at": 1718000000000,
-  "nonce": "A3F9K2Q7",
+  "nonce": "A3F9K2Q7",                    // single-use; recorded on apply
   "ttl_seconds": 1800,
-  "signer_id": "founder-admin"        // NEW: who provisioned
+  "signer_id": "salesman-1"               // who provisioned
 }
 ```
-Signed by the **issuing admin's** key. The shopkeeper:
-1. verifies the signature against the directory (hard reject on unknown signer),
-2. records `provisioned_by = <signer display name>` (new `Config` map, `shop_key → name`),
-3. stores nothing else about the token (unchanged).
+Allowed roles: `founder`, `admin`, `salesman`. The shopkeeper:
+1. verifies against the directory, and checks the role may provision;
+2. rejects a **replayed `nonce`** (nonces persisted per shop, bounded, pruned after the TTL);
+3. records `provisioned_by = <signer display name>` and `provisioned_by_id`;
+4. keeps `shop_key` validation (`isValidShopKey`) — unchanged.
 
-## 5. Catalog delta
+`business_name` stays **display-only and spoofable** (signed, but the operator reads it from
+the screen they are pointing at) — recorded as a residual risk, not a control.
 
-Payload gains `signer_id`; the HMAC is replaced by an Ed25519 signature over
-payload-minus-signature (same canonical pattern: append `signature` last, strip first).
+## 6. Catalog delta
+
+```jsonc
+{
+  "format": "myhanout-catalog-delta",
+  "alg": "ed25519",                       // a v1 HMAC and a v1 Ed25519 delta are distinct
+  "fileVersion": 2,                        // bumped: the HMAC era is v1
+  "signer_id": "admin-2",
+  "base_version": 1794500000,
+  "target_version": 1794500001,            // MUST equal base_version + 1
+  "generated_at": 1794500000,
+  "upserts": [ … ], "deletes": [ … ],
+  "signature": "…"                         // last, stripped first
+}
+```
+Allowed roles: `founder`, `admin` (**not** salesman).
 
 Verify chain (all offline):
 ```
-delta.signer_id ──▶ public key from directory ──▶ verify signature
-directory itself ──▶ baked root public key ──▶ verify signature
+delta.signer_id ──▶ role check ──▶ public key from directory ──▶ verify signature
+directory ───────▶ baked root public key ──▶ verify signature
+base_version == installed  AND  target_version == base_version + 1
 ```
+**Hard reject** on unknown signer / forbidden role / bad signature / version jump — nothing
+applied, state unchanged. On success `catalog.db` (bumped to **schema v4**) gains
+`signer_log(id, version, signed_by, signed_by_id, applied_at, entry_count, applied_on_shop)`.
 
-**Unknown signer ⇒ hard reject** with
-`"unknown signer — scan an updated directory from your admin"`. Nothing is applied.
-On success: `catalog.db` gains `signer_log(id, version, signed_by, applied_at, entry_count)`.
+## 7. Directory distribution — QR only
 
-## 6. Directory distribution — QR only (decision (i))
+- The **admin app** renders the directory as a QR (phase 3: built from the server registry;
+  phase 1: built by the tool and baked).
+- The **shopkeeper** scans it, verifies with the baked root key, replaces **only if
+  `version` is higher**; the previous directory is retained on any failure.
+- **Chunking:** a directory that exceeds one QR is split into numbered chunks
+  (`index`, `count` in the payload); all chunks must arrive and the reassembled payload is
+  verified once. A partial set is rejected.
+- No file channel for trust material, no API call — trust changes only by scanning a
+  screen in person (a procedural control; see §11).
 
-- The **admin app** renders the directory as a QR (built from the server registry — phase 3;
-  in phase 1 it is built by `tool/gen_signer_keys.dart` and baked).
-- The **shopkeeper** scans it with the existing `QrScanPage`, verifies it with the baked root
-  key, and replaces the directory **only if `version` is higher**.
-- No file channel for trust material, no API call — the shopkeeper's trust root changes only
-  by scanning an admin's screen in person.
+## 8. Migration checklist
 
-## 7. Migration from the shared HMAC
+**HMAC removal touches:** `lib/data/provisioning.dart` (secret, `signatureFor`,
+`verifySignature`), `lib/data/catalog_delta.dart` (sign/verify), 
+`lib/data/shop_provisioning_service.dart` (QR sign). Keep `generateShopKey` (nonce).
 
-`_provisioningSecret` is **compromised** (git history + shipped APKs) ⇒ hard cutover:
-1. Generate root + founder-admin (+ admin) keypairs with the tool.
-2. Bake `assets/signers.json` (public halves only).
+**Ripple** (beyond the obvious): `lib/services/catalog_delta_service.dart`,
+`lib/services/catalog_push_service.dart`, `tool/make_catalog_delta.dart`,
+`tool/make_poc_delta.dart`, `test/poc/catalog_delta_poc_test.dart`,
+`test/poc/catalog_version_guard_poc_test.dart`, `test/services/*`,
+`test/unit/provisioning_test.dart`, `test/helpers/mock_providers.dart`,
+`lib/data/settings_service.dart`.
+
+1. Generate the root keypair (tool; private half imported one-way into the founder device)
+   and the founder-admin keypair (**on the founder device** via `generateSigner()`).
+2. Bake `assets/signers.json` (envelope) and register it in `pubspec.yaml`.
 3. Ship the root public key in `lib/data/signing.dart`.
-4. Sign QR/delta with the admin keys.
+4. Switch QR + delta to Ed25519; bump `fileVersion`.
 5. **Delete** the HMAC secret and its code paths; rebuild both flavors.
-6. Re-issue QRs (old ones are TTL-bound anyway) and re-issue any pending delta.
+6. Bump `CatalogDb` to v4 with `signer_log` in `onCreate` + `onUpgrade`.
+7. Re-issue QRs (old ones are TTL-bound) and any pending delta; old APKs in the wild will
+   reject them (see §11).
 
-## 8. Files touched
+## 9. Files touched
 
 | File | Change |
 |---|---|
-| `pubspec.yaml` | `+ cryptography` (**done**) |
-| `lib/data/signing.dart` | **new** — Ed25519 sign/verify, directory model, baked root public key |
-| `lib/data/signers_directory.dart` | **new** — load / scan / replace / version guard |
-| `lib/data/provisioning.dart` | QR payload + `signer_id`; Ed25519; remove the HMAC secret |
-| `lib/data/catalog_delta.dart` | payload + `signer_id`; Ed25519; hard reject |
-| `lib/data/myhanout_file.dart` | directory → signer → artifact verify chain |
-| `lib/data/config.dart` | `provisioned_by` map |
-| `lib/screens/shop_entry_screen.dart` | directory-QR scan; record `provisioned_by` |
-| `assets/signers.json` | **new** — baked directory |
-| `tool/gen_signer_keys.dart` | **new** — keypair generation; prints the public half |
-| `test/poc/ed25519_poc_test.dart` | **done** |
-| tests | verify-chain + hard-reject + version-regression |
+| `pubspec.yaml` | `+ cryptography` (**done**), `+ assets/signers.json` |
+| `lib/data/signing.dart` | **new** — Ed25519, canonical JSON, directory model, baked root key |
+| `lib/data/signers_directory.dart` | **new** — load (re-verify) / scan / chunk / replace |
+| `lib/data/provisioning.dart` | typed QR payload, `signer_id`, nonce check, Ed25519 |
+| `lib/data/catalog_delta.dart` | typed payload, `signer_id`, `fileVersion` 2, Ed25519, `+1` rule |
+| `lib/data/myhanout_file.dart` | format → role → directory → signer → verify chain |
+| `lib/data/catalog_db.dart` | **v4**: `signer_log` |
+| `lib/data/config.dart`, `lib/data/settings_service.dart` | `provisioned_by` / `provisioned_by_id`, used nonces |
+| `lib/screens/shop_entry_screen.dart`, `lib/screens/qr_scan_page.dart` | route by `format`; directory scan |
+| `assets/signers.json` | **new** |
+| `tool/gen_signer_keys.dart` | **new** — root keypair only; private half never printed/written |
+| tests | POC (**done**) + the criteria in §10 |
 
-**Out of scope (phase 2/3):** attribution UI, listing-bundle signing (closes C1), admin
-management UI, server registry endpoints, secure key storage.
+**Out of scope (phase 2/3):** attribution UI, listing-bundle signing (closes C1), admin /
+salesman management UI, server registry endpoints, secure key storage.
 
-## 9. Acceptance criteria
+## 10. Acceptance criteria
 
-1. `tool/gen_signer_keys.dart` generates a keypair; the public half is printed for
-   `signers.json`, and `git grep` finds **no** private-key material anywhere in the tree.
-2. The baked directory verifies against the root key; a one-byte tamper is rejected.
-3. An artifact signed by a **listed** admin verifies; one signed by an **unknown** key is
-   hard-rejected with the "unknown signer" message and nothing is applied.
-4. A scanned directory QR replaces the directory and bumps `version`; a **lower** version is
-   ignored.
-5. After a signer is removed, their QR/delta is rejected.
-6. The HMAC secret is gone from the tree, and **both release APKs grep-clean** for it.
-7. The shopkeeper still makes **zero** API calls (APK grep + the existing guardrail test).
-8. `provisioned_by` is recorded and readable from the shop screen.
+1. Tool generates the **root** keypair; the public half goes into `signers.json`;
+   **no private-key material** in the tree **or git history** (`git log -S`).
+2. The baked directory verifies against the root key; a one-byte tamper — payload **or**
+   signature — is rejected.
+3. A listed admin's artifact verifies; an unknown key is hard-rejected with the exact
+   message, and **DB/prefs state is unchanged**.
+4. A scanned directory replaces the directory and bumps `version`; a lower/equal version is
+   a no-op; the previous directory survives a bad scan.
+5. After a signer is removed **and the device has the new directory**, their QR/delta is
+   rejected.
+6. HMAC secret absent from tree and history; both release APKs grep-clean; an **HMAC-signed
+   delta is rejected** after cutover.
+7. Shopkeeper makes **zero** API calls: APK grep markers + the guardrail test extended with
+   an `HttpOverrides` that fails any request.
+8. `provisioned_by` / `provisioned_by_id` recorded and readable via
+   `SettingsService.getProvisionedBy(shopKey)` with a widget test.
+9. **A tampered persisted directory override is rejected on load**; the baked directory is
+   used. **(CR-01)**
+10. `target_version != base_version + 1` is rejected; the installed version is unchanged.
+    **(CR-02)**
+11. Malformed artifacts (wrong types, duplicate keys, oversized `photo_base64`, too many
+    rows) are rejected, never thrown. **(CR-09)**
+12. A provisioning QR whose `nonce` was already used is rejected. **(CR-10)**
+13. A directory with duplicate `signer_id`s or a bad key length is rejected at load.
+14. A directory signed by the wrong root key is rejected and the previous one retained.
+15. A signed fixture produced by a **non-Dart** producer verifies in Dart, and vice versa
+    (canonical JSON). **(CR-07)**
+16. A **salesman** artifact is rejected for a catalog delta (`forbidden-role`), and an
+    admin's is rejected for a directory.
+17. `signer_log` rows carry version, `signed_by`, `applied_at`, `entry_count`,
+    `applied_on_shop`, and are queryable.
+18. `assets/signers.json` ships in **both** APKs; the APK is signed with the **release**
+    keystore and the baked root fingerprint matches `lib/data/signing.dart`. **(CR-03)**
 
-## 10. Risks
+## 11. Accepted residual risks (explicit)
 
-- **Directory staleness** — a new admin cannot reach a shopkeeper until the directory reaches
-  the device; the hard-reject message must say so (by design, D9).
-- **Root key** — single point of trust on one device; rotation needs an app update.
-- **Private keys in `shared_preferences`** — readable on a compromised/rooted device; phase-1
-  accepted, Keystore/Keychain later.
-- **Dependency** — `cryptography` is pure Dart; verify release-build size/startup before
-  shipping (POC covered behaviour, not size).
+| Risk | Why accepted / mitigation |
+|---|---|
+| **Catalog delta stays universal** (C2-03) | Locked product decision (any device may apply any signed delta). The risk report conditioned universality on a **server-held** key, which this design deliberately rejects. Mitigation in phase 1: `target = base + 1` stops version-jump desync. **Residual: one compromised admin key still reaches every shop.** |
+| **Installed APKs keep the compromised HMAC** | Old builds can't be patched. Mitigation: forced update / version gate, or accept old APKs as untrusted. Re-issuing deltas is not sufficient. |
+| **Release APKs are debug-signed** (C2-08) | Needs a dedicated keystore — a build-infra task, tracked as criterion 18. |
+| **Private keys in `shared_preferences`** | Phase-1 boundary is the device sandbox; Keystore/Keychain deferred. |
+| **Directory staleness** | A new admin/salesman can't reach a shop until the directory arrives; hard reject says so (D9). |
+| **Root key** | Single point of trust on one device; rotation needs an app update. |
+| **"In-person QR" is procedural** | It narrows the channel but is not a technical control. |
+| **Silent auto-apply of VIEW intents** | Signature still gates it; confirmation dialog deferred. |
+| **`business_name` spoofable** | Display-only; the shopkeeper reads it from the screen they face. |
+| **Dependency** | `cryptography` is pure Dart; verify release size/startup before shipping. |
