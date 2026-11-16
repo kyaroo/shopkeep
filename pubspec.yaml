@@ -39,6 +39,7 @@ flutter:
   assets:
     - assets/lang/
     - assets/catalog_seed.db
+    - assets/signers.json
   fonts:
     - family: Tajawal
       fonts:
