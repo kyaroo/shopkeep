@@ -1,9 +1,13 @@
 # myhanout — Backlog & done-log
 
 Reconciled **2026-11-15** against real `git` / `flutter` / `curl` output.
-This file is the single source of truth; `backlog-CAT9.md` and
+This file is the source of truth; `backlog-CAT9.md` and
 `next-session-plan.md` are superseded (kept for history only).
 Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
+
+> **Pick-up guide for the next session:** `docs/session-plan-next.md`
+> (what to read first, the ordered next steps with their gates, and the
+> watch-outs carried forward).
 
 ## Locked architecture
 | Store | Scope | Content |
@@ -67,6 +71,9 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **B2** | Listing import service | ✅ 3h (M) | verify **then** bind and merge; a rejected file writes nothing |
 | **B6** | Join rework: « Importer la boutique » | ✅ 3h (M) | file picker + `.myhanoutlisting` VIEW intent, routed by extension |
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
+| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | 1 h (S) | **outstanding** — the release artifacts predate phase 2 (manifest, listing bundle, attribution) |
+| **OPS-1** | Back up the signer private seeds off the build host | 15 min (S) | `~/.myhanout-keystore/signers-seeds.txt` exists **only** on the Linux host; losing it blocks every future authorisation |
+| **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | 30 min (S) | other tests sharing that key see its rows; make it self-cleaning like the other POC tests |
 
 ## Open — server
 | ID | Item | Est. | State |
