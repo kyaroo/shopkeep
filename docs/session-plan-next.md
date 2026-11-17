@@ -7,13 +7,14 @@ up cold*.
 ## Where we are
 
 - **Repo** `/home/hermes/perso/shopkeeper`, `main`, **0 ahead / 0 behind**
-  `origin/main`, HEAD `a402f37`. Working tree clean.
+  `origin/main`, HEAD `2c10348`. Working tree clean.
 - **Gates, actually run:** `flutter analyze` → No issues found;
-  `flutter test` → **187/187**.
+  `flutter test` → **191/191**; `tool/verify_catalog_export_gate.sh` → green.
 - **Delivered so far:** phase 1 (Ed25519 signing, criteria 1–18 closed), phase 2
-  (listing bundle + join + attribution), and a device pass that found four
-  real defects (FIX-1…FIX-4 in the backlog).
-- **On the emulator:** release x64 build installed (sha256 `9ad3d25f…`), shop
+  (listing bundle + join + attribution), a device pass that found four real
+  defects (FIX-1…FIX-4), and EXP-1 (listing / history / catalog exports, with
+  the catalog admin-only).
+- **On the emulator:** release x64 build installed (sha256 `40f7576c…`), shop
   `hanouti`, catalog → 2, 22 products, 20 with real photos, delivered over
   `content://` from signed artifacts.
 
@@ -39,9 +40,17 @@ Two hung attempts each committed a sale row with **no stock deduction**
 wipe `hanouti` and re-provision the 20 items (`tool/pick_catalog_sample.py` →
 `make_listing_bundle.dart` → `make_catalog_delta.dart`, then two VIEW intents).
 
-### 2. REL-2 — refresh the release artifacts (~1 h, S)
+### 2. TEST-2 — device smoke pass (~1 h, recurring)
 
-The signed APKs from 15:52/15:57 predate FIX-1…FIX-4. Before anything ships:
+Do this in the same session, while the user is at the screen: cold-launch →
+apply a signed listing + delta over `content://` → validate a sale → Inventaire
+in fr/en/ar → Paramètres → Sauvegarde shows **2** exports on the shopkeeper
+flavor and **3** on admin. The suite cannot catch this class of defect — FIX-1
+and FIX-3/FIX-4 all shipped green.
+
+### 3. REL-2 — refresh the release artifacts (~1 h, S)
+
+The signed APKs from 15:52/15:57 predate everything above. Before anything ships:
 
 ```bash
 cd /home/hermes/perso/shopkeeper
@@ -49,23 +58,24 @@ export ANDROID_HOME=/home/hermes/android-sdk
 flutter build apk --release --flavor shopkeeper      # separate invocations
 flutter build apk --release --flavor admin
 bash tool/verify_retired_secrets.sh                  # expect 0 hits
+bash tool/verify_catalog_export_gate.sh              # expect green
 ```
 
 **Gate:** `apksigner verify --print-certs` on the **artifacts** shows SHA-256
 `67c4aaeb…a690`. Never trust a green build to prove the signing.
 
-### 3. I18N-1 — confirm the Arabic stock wording (~5 min, needs the user)
+### 4. I18N-1 — confirm the Arabic stock wording (~5 min, needs the user)
 
 `stockQty` ar went `الكمية في المخزون` → `مخزون` to fit the 199 px subtitle
 budget. If the original wording matters more, revert and accept ellipsis.
 
-### 4. BUILD-1 — the admin release flake (optional, 30 min)
+### 5. BUILD-1 — the admin release flake (optional, 30 min)
 
 Still unreproduced: 3/3 admin-only builds succeeded. Both earlier failures ran
 admin immediately after shopkeeper in one invocation. Workaround stands: build
 the flavors separately. Low priority until it bites a real release.
 
-### 5. Then choose: parked POS features
+### 6. Then choose: parked POS features
 
 E1 clôture de caisse (16 h) · D1–D4 prix conseillé (10 h) · E2 ticket +
 imprimante (20 h) · E3 backup auto (12 h) · G1 conflits (8 h).
@@ -74,6 +84,9 @@ imprimante (20 h) · E3 backup auto (12 h) · G1 conflits (8 h).
 
 - **A green suite does not mean the app works.** Two of this pass's four defects
   shipped green. Click the app on a **release** build.
+- **A `kIsAdmin` gate cannot be tested** (compile-time const) — source-guard it.
+- **`sqflite_common_ffi` ≠ the Android plugin**; a transaction self-deadlock
+  passes ffi. Guard those by observing the lock, not the business outcome.
 - **`uiautomator` sees no Flutter text here.** GUI verification is human or
   logcat — never blind coordinate tapping.
 - **Release builds cannot be inspected with `run-as`.** That is why `logInfo`
