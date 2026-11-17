@@ -10,6 +10,7 @@ import '../theme.dart';
 import 'browse_page.dart';
 import 'product_form_dialog.dart';
 import '../widgets/stock_badge.dart';
+import '../widgets/inventory_thumb.dart';
 
 /// Top-level entry used by the HomePage FAB. Opens the add/edit product form.
 Future<void> showProductForm(BuildContext context, {Product? existing, String? initialBarcode, String? initialName}) async {
@@ -288,29 +289,35 @@ class _InventoryBodyState extends State<InventoryBody> {
                         }
                         final p = products[i];
                         return ListTile(
-                          leading: p.photo != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Image.memory(p.photo!,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 132),
-                                )
-                              : StockBadge(
-                                  isOutOfStock: p.isOutOfStock,
-                                  isLowStock: p.isLowStock,
-                                ),
+                          // Fixed 44x44 whether or not a photo exists: an
+                          // intrinsically-sized leading widget would reserve
+                          // its own width and squeeze the name's column.
+                          leading: InventoryThumb(photo: p.photo),
                           title: Text(p.name,
                               style: Theme.of(context)
                                   .extension<AppTextStyles>()!
                                   .name(context)),
-                          subtitle: Text(
-                              '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'
-                              '${p.barcode != null ? '  •  ${p.barcode}' : ''}',
-                              style: Theme.of(context)
-                                  .extension<AppTextStyles>()!
-                                  .meta(context)),
+                          subtitle: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'
+                                  '${p.barcode != null ? '  •  ${p.barcode}' : ''}',
+                                  style: Theme.of(context)
+                                      .extension<AppTextStyles>()!
+                                      .meta(context),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Stock status lives here rather than in the
+                              // leading slot so it can never cost the name
+                              // any width.
+                              StockBadge(
+                                isOutOfStock: p.isOutOfStock,
+                                isLowStock: p.isLowStock,
+                              ),
+                            ],
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
