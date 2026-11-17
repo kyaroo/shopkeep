@@ -112,6 +112,7 @@ photos), applied over `content://` from signed artifacts.
 | **REL-2** | Rebuild both release APKs after the device fixes, then re-run the retired-secret grep | 1 h (S) | **open** — the signed artifacts from 15:52/15:57 predate FIX-1…FIX-4. Build the flavors **in separate invocations** (see BUILD-1), then `tool/verify_retired_secrets.sh` and `apksigner verify --print-certs` on the **artifacts** |
 | **GUI-1** | Sale retry on device + clean up the orphan sales | 30 min (S) | **open, needs the user** — the deadlock fix is installed; the user clicks Caisse → add → Valider la vente. The two hung attempts each committed a sale row with **no stock deduction** (insertSale commits first); either ignore them in Historique or wipe `hanouti` and re-provision the 20 items |
 | **I18N-1** | Arabic `stockQty` wording | ✅ 5 min (S) | **done 2026-11-17** — `الكمية في المخزون` → `مخزون`; forced by the 199 px subtitle budget. **Flagged to the user**: they may prefer the original wording and accept a tighter Arabic line |
+| **EXP-1** | Separate listing / history / catalog exports; catalog admin-only | ✅ 2 h (M) | **done 2026-11-17** — `ShopExportService` emits three distinctly-named JSON artifacts with **no photos** (`myhanout-listing-v1`, `myhanout-history-v1`, `myhanout-catalog-v1`). The old button was doubly wrong: it sat **outside** the `if (kIsAdmin)` spread (so the shopkeeper could reach a catalog share) *and* it wrote a hard-coded **empty** `Catalog` while discarding the real snapshot. Guard: `tool/verify_catalog_export_gate.sh` (a compile-time `kIsAdmin` cannot be flipped by a test), proven to fail when the guard is removed |
 
 ## Open — server
 | ID | Item | Est. | State |
@@ -157,5 +158,9 @@ photos), applied over `content://` from signed artifacts.
   on both ends, then install.
 - **The emulator camera is `hw.camera.back = emulated`**, not `virtualscene`,
   so the scanner cannot be driven with a poster without restarting the AVD.
+- **A `kIsAdmin` gate cannot be tested** — it is a compile-time const, so no test
+  can flip it. Guard such gates at the source (`tool/verify_catalog_export_gate.sh`)
+  and check the closing bracket of an `if (kIsAdmin) ...[` spread by eye: the
+  catalog-export bug was a card placed one `],` too late.
 - **Commit messages:** repeated `-m` flags; a heredoc is on the user's
   denied-command list.
