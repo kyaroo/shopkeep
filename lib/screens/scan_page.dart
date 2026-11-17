@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:easy_localization/easy_localization.dart';
+
+import 'manual_barcode_entry.dart';
 
 /// Shared full-screen barcode scanner with a scan reticle, a steady hint, and
 /// a torch toggle. Pops the raw barcode string.
@@ -23,6 +25,10 @@ class ScanPage extends StatefulWidget {
 class _ScanPageState extends State<ScanPage> {
   final MobileScannerController _controller = MobileScannerController();
 
+  /// Manual entry is opt-in, so the scanner keeps the whole screen for the
+  /// common case; the toggle only swaps the overlay, never the camera.
+  bool _manualOpen = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -35,6 +41,12 @@ class _ScanPageState extends State<ScanPage> {
       appBar: AppBar(
         title: Text('scanBarcode'.tr()),
         actions: [
+          IconButton(
+            icon: Icon(
+                _manualOpen ? Icons.keyboard_hide : Icons.keyboard_alt_outlined),
+            tooltip: 'manualEntry'.tr(),
+            onPressed: () => setState(() => _manualOpen = !_manualOpen),
+          ),
           ValueListenableBuilder<MobileScannerState>(
             valueListenable: _controller,
             builder: (context, state, _) {
@@ -91,6 +103,17 @@ class _ScanPageState extends State<ScanPage> {
               ),
             ),
           ),
+          // Manual entry overlays the preview, so the camera keeps running and
+          // the cashier can switch back without losing framing.
+          if (_manualOpen)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 28,
+              child: ManualBarcodeEntry(
+                onSubmit: (code) => Navigator.pop(context, code),
+              ),
+            ),
         ],
       ),
     );

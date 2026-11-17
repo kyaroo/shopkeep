@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../models/cart.dart';
+import '../utils/app_log.dart';
 import '../models/product_lookup_result.dart';
 import '../data/db.dart';
 import '../data/product_lookup.dart';
@@ -154,6 +155,10 @@ class CartProvider with ChangeNotifier {
     final db = await Db.open(shopKey);
     await db.insertSale(shopKey, total, items);
     await db.deductStock(shopKey, deductions);
+    // Visible in logcat even on a release build, so a completed sale can be
+    // confirmed without a debugger.
+    logInfo('sale completed: ${items.length} line(s), '
+        '$total cents, shop $shopKey');
     _cart.clear();
     await loadProducts();
     return total;

@@ -14,7 +14,8 @@ import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/models/catalog_entry.dart';
 
 Future<void> main(List<String> args) async {
-  if (args.length != 4) {
+  // Positional args are required; --signer-id / --private-seed follow them.
+  if (args.length < 4) {
     stderr.writeln('usage: make_catalog_delta.dart <export> <out> '
         '<base> <target> --signer-id <id> --private-seed <base64url>');
     exit(2);

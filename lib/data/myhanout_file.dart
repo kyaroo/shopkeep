@@ -5,6 +5,7 @@ import 'catalog_db.dart';
 import 'db.dart';
 import 'listing_bundle.dart';
 import '../services/listing_import_service.dart';
+import '../utils/app_log.dart';
 import 'settings_service.dart';
 import 'signers_directory.dart';
 import 'signing.dart';
@@ -51,7 +52,7 @@ class MyhanoutFile {
 
     if (sniffFormat(json) == ListingBundle.format) {
       final outcome = await ListingImportService.apply(json, settings: settings);
-      await _log(outcome.ok
+      logInfo(outcome.ok
           ? 'listing applied: ${outcome.merge!.inserted} new, '
               '${outcome.merge!.updated} changed, '
               '${outcome.merge!.unchanged} identical (shop ${outcome.shopKey})'
@@ -61,18 +62,8 @@ class MyhanoutFile {
           : 'rejected: ${outcome.error}';
     }
     final result = await applyJson(json, settings: settings);
-    await _log('catalog delta: $result');
+    logInfo('catalog delta: $result');
     return result;
-  }
-
-  /// Records an outcome on the host side, so a **release** build (which cannot
-  /// be inspected with `run-as`) is still diagnosable from logcat. Never throws.
-  static Future<void> _log(String message) async {
-    try {
-      await _channel.invokeMethod<void>('log', {'message': message});
-    } catch (_) {
-      // Non-Android / tests: nothing to log to.
-    }
   }
 
   /// The `format` field of an artifact file, or null if it is not one.
