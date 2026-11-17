@@ -301,8 +301,9 @@ class _InventoryBodyState extends State<InventoryBody> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  '${formatMoney(p.priceCents)}  •  ${'stockQty'.tr()}: ${p.stockQty}'
-                                  '${p.barcode != null ? '  •  ${p.barcode}' : ''}',
+                                  '${formatMoney(p.priceCents)} • ${'stockQty'.tr()}: ${p.stockQty}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context)
                                       .extension<AppTextStyles>()!
                                       .meta(context),
@@ -310,11 +311,14 @@ class _InventoryBodyState extends State<InventoryBody> {
                               ),
                               const SizedBox(width: 8),
                               // Stock status lives here rather than in the
-                              // leading slot so it can never cost the name
-                              // any width.
+                              // leading slot so it can never cost the name any
+                              // width. Icon-only: a text pill measured 85px
+                              // ("En stock") and wrapped this line, which had
+                              // only 199px for text + badge together.
                               StockBadge(
                                 isOutOfStock: p.isOutOfStock,
                                 isLowStock: p.isLowStock,
+                                showLabel: false,
                               ),
                             ],
                           ),

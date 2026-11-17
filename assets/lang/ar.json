@@ -15,7 +15,7 @@
   "noProducts": "لا توجد منتجات بعد.\nاضغط + لإضافة منتج.",
   "nameRequired": "مطلوب",
   "priceHintDirhams": "مثال: 19.90",
-  "stockQty": "الكمية في المخزون",
+  "stockQty": "مخزون",
   "barcodeOptional": "الباركود (اختياري)",
   "addProduct": "إضافة منتج",
   "editProduct": "تعديل المنتج",

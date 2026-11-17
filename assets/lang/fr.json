@@ -48,7 +48,7 @@
   "lowStockThreshold": "Alerte stock à",
   "lowStockThresholdHint": "ex. 5",
   "lowStock": "Stock bas",
-  "outOfStock": "Rupture de stock",
+  "outOfStock": "Rupture",
   "all": "Tout",
   "inventoryOk": "Inventaire OK",
   "inventorySummary": "{count} produits · {low} en stock bas",

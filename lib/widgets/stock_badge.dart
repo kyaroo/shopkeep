@@ -4,14 +4,23 @@ import '../theme.dart';
 
 /// Pill stock badge — three encodings (icon + color + text) per spec.
 /// Non-interactive; announces status via Semantics.
+///
+/// [showLabel] is false in the dense inventory row, where the badge shares the
+/// subtitle line with the price and the stock count. There it renders as a
+/// 28px icon chip: the row gives the line 199px, the subtitle text alone is
+/// 161px, so a text pill (85px for "En stock") cannot fit and wraps the line —
+/// and by a different amount per locale. The label is not lost: it stays in
+/// [Semantics] and in the long-press tooltip.
 class StockBadge extends StatelessWidget {
   final bool isOutOfStock;
   final bool isLowStock;
+  final bool showLabel;
 
   const StockBadge({
     super.key,
     required this.isOutOfStock,
     required this.isLowStock,
+    this.showLabel = true,
   });
 
   @override
@@ -24,6 +33,22 @@ class StockBadge extends StatelessWidget {
             : (status.success, Icons.check_circle, 'inStock'.tr());
 
     final bg = color.withValues(alpha: isOutOfStock ? 0.12 : isLowStock ? 0.16 : 0.12);
+
+    if (!showLabel) {
+      return Semantics(
+        label: label,
+        child: Tooltip(
+          message: label,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+            child: Icon(icon, size: 16, color: color),
+          ),
+        ),
+      );
+    }
+
     final fg = isLowStock ? status.onWarning : status.onSuccess;
 
     return Semantics(
