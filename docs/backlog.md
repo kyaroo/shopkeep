@@ -13,9 +13,10 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 
 - Shopkeeper carries the whole catalog locally; **browse UI deliberately KEPT**
   on both flavors (testing surface).
-- Updates: **admin → shopkeeper** `.myhanout` delta, HMAC = QR secret. The
-  catalog is universal → **no shop binding**; any device may apply any signed
-  delta.
+- Updates: **admin → shopkeeper** `.myhanout` catalog delta and `.myhanoutlisting`
+  listing bundle, both **Ed25519-signed** by a founder/admin key and verified
+  against the signers directory. The catalog is universal → **no shop binding**;
+  any device may apply any validly signed delta.
 - Delivery is a **manual file** (WhatsApp / Android share). Shopkeeper stays
   **100 % offline** — no HTTP push.
 - Inventory refresh: **display-only, fills gaps**; never price/stock/name.
@@ -60,8 +61,12 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 ## Open — app
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **B0** | Listing bundle + join rework specification | ✅ 2h (S) | **reviewed + committed** — blocking B-1 (new-row `name`) fixed, F-1…F-5 corrected; §1.2 no-HMAC left **open** |
-| **B1/B3/B2/B6** | Listing bundle export/import + upsert + join rework | 18 h (L) | after B0 is committed |
+| **B0** | Listing bundle + join rework specification | ✅ 2h (S) | reviewed + committed; blocking B-1 (new-row `name`) fixed, F-1…F-5 corrected. §1.2 resolved by **D10**: the bundle is Ed25519-signed (reopened D2) |
+| **B1** | Listing bundle: model, verify, export | ✅ 3h (M) | `myhanout-listing-v1`, founder/admin only, export → verify round-trip |
+| **B3** | Listing merge policy | ✅ 2h (S) | price/stock by barcode only, atomic, never deletes, audited, new-row `name` from the catalog |
+| **B2** | Listing import service | ✅ 3h (M) | verify **then** bind and merge; a rejected file writes nothing |
+| **B6** | Join rework: « Importer la boutique » | ✅ 3h (M) | file picker + `.myhanoutlisting` VIEW intent, routed by extension |
+| **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
 
 ## Open — server
 | ID | Item | Est. | State |
