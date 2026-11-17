@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import '../data/settings_service.dart';
+import '../services/shop_export_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
@@ -163,28 +164,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _exportCatalog() async {
+  /// Writes [json] to a temp file and hands it to the system share sheet.
+  ///
+  /// One path for all three exports: the old code built the JSON, then wrote a
+  /// hard-coded *empty* [Catalog] to the file and shared that, so the real
+  /// payload was discarded and the `Share.share(json)` fallback was
+  /// unreachable (`writeCatalog` always creates the file).
+  Future<void> _shareJson(String format, String shopKey, String json) async {
     try {
-      final json = await catalogToJson(widget.shopKey);
       final temp = Directory.systemTemp.createTempSync('myhanout_');
-      final file = File('${temp.path}/catalog_${widget.shopKey}.json');
-      writeCatalog(
-        Catalog(
-          version: 1,
-          exportedAt: DateTime.now().millisecondsSinceEpoch,
-          shopKey: widget.shopKey,
-          products: [],
-          sales: [],
-          saleItems: [],
-          auditLog: [],
-        ),
-        file,
-      );
-      if (!await file.exists()) {
-        await Share.share(json);
-      } else {
-        await Share.shareXFiles([XFile(file.path)]);
-      }
+      final name = ShopExportService.fileName(format, shopKey);
+      final file = File('${temp.path}/$name');
+      await file.writeAsString(json);
+      await Share.shareXFiles([XFile(file.path)], subject: name);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('exported'.tr())),
@@ -197,6 +189,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     }
+  }
+
+  /// The shop's own price/stock listing. Available in both flavors.
+  Future<void> _exportListing() async {
+    await _shareJson(
+      ShopExportService.listingFormat,
+      widget.shopKey,
+      await ShopExportService.listingJson(widget.shopKey),
+    );
+  }
+
+  /// The shop's own sales history. Available in both flavors.
+  Future<void> _exportHistory() async {
+    await _shareJson(
+      ShopExportService.historyFormat,
+      widget.shopKey,
+      await ShopExportService.historyJson(widget.shopKey),
+    );
+  }
+
+  /// The universal catalog. **Admin only** — see the `kIsAdmin` guard on the
+  /// menu entry. Metadata only, never photos.
+  Future<void> _exportCatalog() async {
+    await _shareJson(
+      ShopExportService.catalogFormat,
+      widget.shopKey,
+      await ShopExportService.catalogJson(),
+    );
   }
 
   Future<void> _importCatalog() async {
@@ -422,14 +442,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text('backup'.tr(), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
+                  // The listing and the history are the shop's OWN data, so
+                  // both flavors get them.
                   ListTile(
-                    leading: const Icon(Icons.share),
-                    title: Text('exportCatalog'.tr()),
-                    onTap: _exportCatalog,
+                    leading: const Icon(Icons.list_alt),
+                    title: Text('exportListing'.tr()),
+                    onTap: _exportListing,
                   ),
                   ListTile(
+                    leading: const Icon(Icons.receipt_long),
+                    title: Text('exportHistory'.tr()),
+                    onTap: _exportHistory,
+                  ),
+                  // The catalog is UNIVERSAL — the admin's artifact, never the
+                  // shopkeeper's. This guard is the whole point: an earlier
+                  // version of this card sat outside the kIsAdmin spread and
+                  // rendered the catalog action in both flavors.
+                  if (kIsAdmin)
+                    ListTile(
+                      leading: const Icon(Icons.inventory_2),
+                      title: Text('exportCatalog'.tr()),
+                      onTap: _exportCatalog,
+                    ),
+                  ListTile(
                     leading: const Icon(Icons.download),
-                    title: Text('importCatalog'.tr()),
+                    title: Text('restoreBackup'.tr()),
                     onTap: _importCatalog,
                   ),
                 ],
