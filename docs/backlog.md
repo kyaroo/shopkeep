@@ -1,7 +1,7 @@
 # myhanout — Backlog & done-log
 
 Reconciled **2026-11-15** against real `git` / `flutter` / `curl` output.
-This file is the source of truth; `backlog-CAT9.md` and
+This file is the single source of truth; `backlog-CAT9.md` and
 `next-session-plan.md` are superseded (kept for history only).
 Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 
