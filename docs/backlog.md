@@ -89,7 +89,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **BUILD-1** | The admin release build intermittently fails (exit 1, ~10 min in) | 30 min (S) | 2 failures / 2 successes on identical code. Not diagnosed — needs the full Gradle log on the next failure. Blocks reliable release builds until understood |
 | **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
-| **C2** | The `content://` transport is not device-verified | 1 h (S) | the round-trip proved routing/verify/bind/merge over a `file://` URI into the app's own dir; real delivery (WhatsApp / `Share.shareXFiles`) sends `content://`, which `openInputStream` handles but which has not been exercised on a device |
+| **C2** | Device-verify `content://` end to end | 1 h (S) | **transport proven** — the app read the exact bytes from `content://media/external/downloads/…` on the emulator. **Routing fixed** (`64ac06f`): a `content://` URI carries no extension, so it now routes on the signed payload's `format`. The combined read-and-route run still needs an APK on the device (289 MB Tailscale transfer stalled) |
 
 ## Open — server
 | ID | Item | Est. | State |
