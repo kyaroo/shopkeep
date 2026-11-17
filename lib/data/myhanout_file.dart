@@ -30,6 +30,13 @@ class MyhanoutFile {
       // Channel not available (tests, non-Android) — nothing to do.
     }
     if (uri == null || uri.isEmpty) return null;
+    // Consume it: the intent must not be applied a second time by whichever
+    // screen mounts next (entry screen -> app after a successful import).
+    try {
+      await _channel.invokeMethod<String>('clearInitialUri');
+    } catch (_) {
+      // Non-Android / tests: nothing to clear.
+    }
     if (ListingImportFile.isListingUri(uri)) {
       final outcome =
           await ListingImportFile.applyUri(uri, settings: settings);

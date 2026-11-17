@@ -2,6 +2,7 @@ package com.myhanout
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,6 +24,13 @@ class MainActivity : FlutterActivity() {
         ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInitialUri" -> result.success(pendingUri)
+                "clearInitialUri" -> {
+                    // One-shot: a VIEW intent must be handled exactly once,
+                    // otherwise the shop-entry and the app screen would each
+                    // apply the same file.
+                    pendingUri = null
+                    result.success(null)
+                }
                 "readUri" -> {
                     val uri = call.argument<String>("uri")
                     if (uri == null) {
@@ -50,12 +58,29 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** Reads a `file://` or `content://` URI as UTF-8 text. */
+    /**
+     * Reads a `file://` or `content://` URI as UTF-8 text.
+     *
+     * The cause is logged, not swallowed: "unreadable" alone cannot distinguish
+     * a missing file, a scoped-storage denial and a provider error, and the
+     * shopkeeper sees only the outcome.
+     */
     private fun readUri(uri: String): String? {
         return try {
-            contentResolver.openInputStream(Uri.parse(uri))?.bufferedReader()?.use { it.readText() }
+            val stream = contentResolver.openInputStream(Uri.parse(uri))
+            if (stream == null) {
+                Log.w(TAG, "readUri: openInputStream returned null for $uri")
+                null
+            } else {
+                stream.bufferedReader().use { it.readText() }
+            }
         } catch (e: Exception) {
+            Log.w(TAG, "readUri failed for $uri", e)
             null
         }
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
     }
 }

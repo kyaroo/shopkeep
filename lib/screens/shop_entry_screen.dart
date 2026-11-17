@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../data/listing_import_file.dart';
+import '../data/myhanout_file.dart';
 import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../build_config.dart';
@@ -278,6 +279,26 @@ class _ShopEntryScreenState extends State<ShopEntryScreen> {
     if (result == true && mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyPendingFile());
+  }
+
+  /// Handles a VIEW intent the app was launched with.
+  ///
+  /// Without this the shop-entry screen silently ignored a `.myhanout` or
+  /// `.myhanoutlisting` file opened from WhatsApp / a file manager on a fresh
+  /// install, because only `MyhanoutApp` used to consume it — and a fresh
+  /// install never mounts `MyhanoutApp`.
+  Future<void> _applyPendingFile() async {
+    final result = await MyhanoutFile.handleLaunchIntent(settings: _settings);
+    if (result == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result), duration: const Duration(seconds: 4)),
+    );
   }
 
   @override
