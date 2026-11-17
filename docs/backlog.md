@@ -64,7 +64,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | CAT8 | `.myhanout` intent filter on both flavors + receive |
 | CAT9 | admin **« Distribution du catalogue »** screen: shop list, version guard, delta → share, push tracking |
 | BUG A | `GET /v1/shops` 500 → fixed (`abb29c6`) |
-| BUG B | prod volume predating CAT6 → container recreated; **round-trip still to verify** (A3) |
+| BUG B | prod volume predating CAT6 → container recreated; **round-trip verified 2026-11-17 (A3)** |
 | BUG C | delta photo budget enforced client-side (50 KB) |
 | B4 | QR v2: per-shop TTL (`ttl_seconds` in the signed token), clock-skew guard |
 | CAT3b | `products.source` provenance flag (DB v7) — **backend only, no UI yet** |
@@ -94,7 +94,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 ## Open — server
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token**; tooling ready — `bash tool/verify_prod_catalog_version.sh` reads `MYHANOUT_PROD_TOKEN` (never printed/logged) and reports before/after only |
+| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | ✅ 1 h (S) | **done 2026-11-17** — `hamidyougo` round-tripped 2 → 3 (POST 200, GET confirmed). Token read from the container's `CATALOG_TOKEN` into an env var, never printed. Note: `hanouti` does not exist on the server; the real shops are `h` and `hamidyougo` |
 
 ## Parked (not now — decision 2026-11-15)
 - **C2** photo capture in the *shopkeeper* product form (already in the admin
