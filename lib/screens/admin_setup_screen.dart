@@ -12,6 +12,7 @@ import '../data/sync_config.dart';
 import '../providers/catalog_provider.dart';
 import 'catalog_home_page.dart';
 import 'catalog_push_screen.dart';
+import 'listing_push_screen.dart';
 
 /// Admin setup screen: create / manage shops.
 ///
@@ -264,6 +265,20 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                             },
                             icon: const Icon(Icons.share),
                             label: const Text('Distribute catalog'),
+                          ),
+                          const SizedBox(height: 8),
+                          // Export the shop's own price/stock listing as a
+                          // signed `.myhanoutlisting` for the shopkeeper.
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ListingPushScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.sell_outlined),
+                            label: const Text('Export listing'),
                           ),
                         ],
                       ),
