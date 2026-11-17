@@ -44,6 +44,16 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   **no git remote** (local-only by design). `server/app.py` is the whole
   service. Prod container `barcode-mapper-catalog` recreated 2026-11-15.
 
+## Done — phase 2 close-out (2026-11-17)
+- **B7** admin listing export (`ListingPushScreen`) — the delivery loop is wired.
+- **Device round-trip (VIEW intent)**: `applied 2 row(s)` with both rows landed and the
+  unknown barcode flagged `source=listing`; tampered bundle → `rejected: bad-signature`
+  with the listing unchanged.
+- **Fixed: VIEW intents were silently ignored on a fresh install** (`ShopEntryApp`
+  never consumed them) and the intent is now one-shot.
+- **Fixed: `readUri` logged cause** instead of collapsing four failures into
+  `"unreadable file"`.
+
 ## Done — catalog cycle
 | Item | Result |
 |---|---|
@@ -75,8 +85,9 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
 | **B7** | **Admin listing export UI** — the delivery loop is half-wired | ✅ 2 h (M) | done 2026-11-17 — `ListingPushScreen` (shop picker → signer → signed bundle → share); the admin can now produce a `.myhanoutlisting` |
 | **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-17** — `app-shopkeeper-release.apk` sha256 `030d33f2…` (12:50), `app-admin-release.apk` `1bfeb383…` (13:14); grep 0 hits everywhere; both `apksigner`-verified SHA-256 `67c4aaeb…a690` |
-| **OPS-1** | Back up the signer private seeds off the build host | 15 min (S) | `~/.myhanout-keystore/signers-seeds.txt` exists **only** on the Linux host; losing it blocks every future authorisation |
-| **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | 30 min (S) | other tests sharing that key see its rows; make it self-cleaning like the other POC tests |
+| **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
+| **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
+| **C2** | The `content://` transport is not device-verified | 1 h (S) | the round-trip proved routing/verify/bind/merge over a `file://` URI into the app's own dir; real delivery (WhatsApp / `Share.shareXFiles`) sends `content://`, which `openInputStream` handles but which has not been exercised on a device |
 
 ## Open — server
 | ID | Item | Est. | State |

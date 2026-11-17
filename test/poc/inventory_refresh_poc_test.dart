@@ -36,6 +36,18 @@ void main() {
     }
   });
 
+  tearDown(() async {
+    // Leave nothing behind: `flutter test` shares one SQLite factory across
+    // files, so a leftover listing would be seen as imported rows by the next
+    // test that uses this shop key.
+    await Db.closeShop(_shop);
+    final f = await Db.shopDbFile(_shop);
+    for (final suffix in ['', '-wal', '-shm']) {
+      final file = File('${f.path}$suffix');
+      if (await file.exists()) await file.delete();
+    }
+  });
+
   test('fills only missing photos; price/stock/name untouched', () async {
     final db = await Db.open(_shop);
     await db.insertProduct(_shop, Product(
