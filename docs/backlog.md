@@ -94,7 +94,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 ## Open — server
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token**; run after the prod redeploy |
+| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | 1 h (S) | **blocked on the prod bearer token**; tooling ready — `bash tool/verify_prod_catalog_version.sh` reads `MYHANOUT_PROD_TOKEN` (never printed/logged) and reports before/after only |
 
 ## Parked (not now — decision 2026-11-15)
 - **C2** photo capture in the *shopkeeper* product form (already in the admin
