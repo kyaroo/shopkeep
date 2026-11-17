@@ -12,7 +12,18 @@ import '../screens/shop_entry_screen.dart';
 import '../app_state.dart';
 import '../utils/slug.dart';
 import '../build_config.dart';
+import '../services/attribution_service.dart';
 import '../theme.dart';
+
+/// Plain `yyyy-MM-dd HH:mm` — deliberately locale-independent, so the trail is
+/// unambiguous whatever the app language is (and so `intl` date initialization
+/// is not required on this screen).
+String _formatTimestamp(int epochMs) {
+  if (epochMs <= 0) return '';
+  final d = DateTime.fromMillisecondsSinceEpoch(epochMs);
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+}
 
 /// Settings screen: business name, shop management, export/import.
 class SettingsScreen extends StatefulWidget {
@@ -249,6 +260,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           .extension<AppTextStyles>()!
                           .name(context),
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Attribution: who pushed which catalog generation, and who changed a
+          // price or stock level. Read-only, from local tables.
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('attribution'.tr(),
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  FutureBuilder<List<AttributionEntry>>(
+                    future: AttributionService.recent(shopKey: widget.shopKey),
+                    builder: (context, snap) {
+                      if (!snap.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final entries = snap.data!;
+                      if (entries.isEmpty) {
+                        return Text('attributionEmpty'.tr());
+                      }
+                      return Column(
+                        children: [
+                          for (final e in entries)
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                e.kind == 'catalog'
+                                    ? Icons.inventory_2_outlined
+                                    : Icons.sell_outlined,
+                              ),
+                              title: Text(e.actor.isEmpty
+                                  ? 'attributionUnknown'.tr()
+                                  : e.actor),
+                              subtitle: Text(
+                                '${e.kind == 'catalog' ? 'attributionCatalog'.tr() : 'attributionListing'.tr()} · ${e.detail}',
+                              ),
+                              trailing: Text(_formatTimestamp(e.at)),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
