@@ -32,10 +32,11 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` pushed to
   `github.com:kyaroo/shopkeep.git`, 0 ahead.
   - `flutter analyze` → **No issues found!**
-  - `flutter test` → **182/182** (phase 2 close-out)
+  - `flutter test` → **187/187** (device GUI hardening close-out)
   - Release APKs 2026-11-17 (15:52/15:57): shopkeeper sha256 `7d6106b6…`, admin
     `bb10f725…`, both signed SHA-256 `67c4aaeb…a690` (`apksigner`),
-    retired-secret grep 0 hits everywhere
+    retired-secret grep 0 hits everywhere **— these predate the device fixes
+    below; see REL-2**
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -75,6 +76,24 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **A5 / G2** | local-add recovery (`f1468cf`): filter chip + per-row undo, i18n fr/en/ar, 7 tests; analyze 0, 126/126, APK built |
 | Offline isolation | lookups/join/sync gated; release shopkeeper APK grep-clean |
 
+## Done — device GUI hardening (2026-11-17)
+Exercised on the emulator on a **release** x64 build. Four real defects found
+by clicking the app, none of which the suite could have caught.
+
+| ID | Defect | Root cause | Fix |
+|---|---|---|---|
+| **FIX-1** | **Every sale hung forever** — « Valider la vente » did nothing | `deductStock` wrote its audit rows through the top-level handle *inside* `db.transaction((txn) …)`; sqflite queues that write behind its own transaction → permanent deadlock. Only symptom: `Warning database has been locked for 0:00:10` | `Audit.log` takes the executor; `deductStock` and `import_export` pass `txn`. Guard test reproduces the hang (reverting the fix times it out at 180 s) |
+| **FIX-2** | No way to type a barcode | `ScanPage` had no manual entry; the emulator camera is `emulated`, so the cart could not be filled by hand | `ManualBarcodeEntry` overlay; pops the raw string exactly like a camera detection, so `scanToAdd`/lookup are untouched |
+| **FIX-3** | **Name truncated** on photo-less rows | `leading` was a fixed 44×44 photo but an intrinsically-sized `StockBadge` (87 px in fr) → the name's column collapsed 311 → 53 px | `InventoryThumb`, fixed 44×44 in both cases |
+| **FIX-4** | Stock line wrapped in fr/en | Badge moved to the subtitle measured 85 px against a 199 px line | Badge icon-only in that row (28 px chip, label in `Semantics` + tooltip); barcode off the line; short stock labels |
+
+Supporting work: release-side outcome log (`logInfo` → logcat) because a
+release build cannot be inspected with `run-as`; `tool/make_catalog_delta.dart`
+arg-check bug (the tool could never run); `tool/pick_catalog_sample.py`.
+
+**Device state:** shop `hanouti`, catalog → 2, 22 products (20 with real
+photos), applied over `content://` from signed artifacts.
+
 ## Open — app
 | ID | Item | Est. | State |
 |---|---|---|---|
@@ -90,6 +109,9 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
 | **C2** | Device-verify `content://` end to end | ✅ 1 h (S) | **done 2026-11-17** — on a **release** x64 build over `content://media/external/downloads/…`: `listing applied: 2 new, 0 changed, 0 identical (shop hanouti)`, and the tampered bundle → `listing rejected: bad-signature`. Needed a release-side outcome log because a release build cannot be inspected with `run-as` |
+| **REL-2** | Rebuild both release APKs after the device fixes, then re-run the retired-secret grep | 1 h (S) | **open** — the signed artifacts from 15:52/15:57 predate FIX-1…FIX-4. Build the flavors **in separate invocations** (see BUILD-1), then `tool/verify_retired_secrets.sh` and `apksigner verify --print-certs` on the **artifacts** |
+| **GUI-1** | Sale retry on device + clean up the orphan sales | 30 min (S) | **open, needs the user** — the deadlock fix is installed; the user clicks Caisse → add → Valider la vente. The two hung attempts each committed a sale row with **no stock deduction** (insertSale commits first); either ignore them in Historique or wipe `hanouti` and re-provision the 20 items |
+| **I18N-1** | Arabic `stockQty` wording | ✅ 5 min (S) | **done 2026-11-17** — `الكمية في المخزون` → `مخزون`; forced by the 199 px subtitle budget. **Flagged to the user**: they may prefer the original wording and accept a tighter Arabic line |
 
 ## Open — server
 | ID | Item | Est. | State |
@@ -120,3 +142,20 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - `assets/catalog_seed.db` is 60 MB — above the 50 MB recommendation.
 - `SyncConfig.defaultClient()` is still called directly in
   `admin_setup_screen` (shop deletion) — last locator of its kind.
+- **The shopkeeper flavor must make zero HTTP requests.** Proven by
+  `HttpOverrides` in `security_regression_test.dart` and by the release-APK
+  grep. Both must stay green.
+- **A green suite does not mean the app works.** FIX-1 (every sale hung) and
+  FIX-3 (truncated names) both shipped with 182/182 green: `sqflite_common_ffi`
+  does not reproduce the Android plugin's per-database queueing, and no test
+  rendered a row. Keep clicking the app on a **release** build.
+- **`uiautomator` exposes no Flutter text** on this app (release *or* debug),
+  even with an accessibility service enabled. GUI verification is human, or
+  via logcat (`logInfo`) — never blind coordinate tapping.
+- **APK transfer to the Windows host:** the Tailscale link stalls above
+  ~260 MB. Split into 15 MB chunks, `copy /b` them together, verify the sha256
+  on both ends, then install.
+- **The emulator camera is `hw.camera.back = emulated`**, not `virtualscene`,
+  so the scanner cannot be driven with a poster without restarting the AVD.
+- **Commit messages:** repeated `-m` flags; a heredoc is on the user's
+  denied-command list.
