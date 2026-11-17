@@ -392,6 +392,9 @@ class Db {
           oldValues: {'stock_qty': beforeQty},
           newValues: {'stock_qty': afterQty},
           changedBy: 'system',
+          // Inside this transaction: must use `txn`, or the write queues
+          // behind its own transaction and the sale never completes.
+          txn: txn,
         );
       }
     });

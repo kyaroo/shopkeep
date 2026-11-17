@@ -199,6 +199,7 @@ Future<ImportResult> importCatalogJson(String shopKey, String json) async {
             recordId: id,
             newValues: p.toMap(),
             changedBy: 'system',
+            txn: txn,
           );
         }
       }
