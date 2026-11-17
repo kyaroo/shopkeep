@@ -39,6 +39,13 @@ class MainActivity : FlutterActivity() {
                         result.success(readUri(uri))
                     }
                 }
+                "log" -> {
+                    // Lets Dart record an outcome (a refused file, a successful
+                    // import) so a release build is diagnosable from logcat.
+                    // No payload content, no URIs with query secrets.
+                    Log.i(TAG, call.argument<String>("message") ?: "")
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

@@ -89,7 +89,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **BUILD-1** | The admin release build intermittently fails (exit 1, ~10 min in) | 30 min (S) | **not reproduced** — 3/3 admin-only builds succeeded on 2026-11-17. Both earlier failures happened when admin ran *immediately after* shopkeeper in the same invocation, which is the remaining hypothesis. Workaround until proven: build the two flavors in separate invocations |
 | **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
-| **C2** | Device-verify `content://` end to end | 1 h (S) | **transport proven** — the app read the exact bytes from `content://media/external/downloads/…` on the emulator. **Routing fixed** (`64ac06f`). The combined read-and-route run still needs the fixed APK on the device: the Linux→Windows Tailscale link repeatedly stalls at ~260 MB (tried with 289 MB and 261 MB builds; Linux→emulator adb is firewalled, so the APK must stage on Windows). Needs a working link or a smaller artifact |
+| **C2** | Device-verify `content://` end to end | ✅ 1 h (S) | **done 2026-11-17** — on a **release** x64 build over `content://media/external/downloads/…`: `listing applied: 2 new, 0 changed, 0 identical (shop hanouti)`, and the tampered bundle → `listing rejected: bad-signature`. Needed a release-side outcome log because a release build cannot be inspected with `run-as` |
 
 ## Open — server
 | ID | Item | Est. | State |

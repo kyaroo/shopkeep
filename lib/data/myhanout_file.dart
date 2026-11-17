@@ -51,11 +51,28 @@ class MyhanoutFile {
 
     if (sniffFormat(json) == ListingBundle.format) {
       final outcome = await ListingImportService.apply(json, settings: settings);
+      await _log(outcome.ok
+          ? 'listing applied: ${outcome.merge!.inserted} new, '
+              '${outcome.merge!.updated} changed, '
+              '${outcome.merge!.unchanged} identical (shop ${outcome.shopKey})'
+          : 'listing rejected: ${outcome.error}');
       return outcome.ok
           ? 'applied ${outcome.merge!.touched} row(s)'
           : 'rejected: ${outcome.error}';
     }
-    return applyJson(json, settings: settings);
+    final result = await applyJson(json, settings: settings);
+    await _log('catalog delta: $result');
+    return result;
+  }
+
+  /// Records an outcome on the host side, so a **release** build (which cannot
+  /// be inspected with `run-as`) is still diagnosable from logcat. Never throws.
+  static Future<void> _log(String message) async {
+    try {
+      await _channel.invokeMethod<void>('log', {'message': message});
+    } catch (_) {
+      // Non-Android / tests: nothing to log to.
+    }
   }
 
   /// The `format` field of an artifact file, or null if it is not one.
