@@ -32,7 +32,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` pushed to
   `github.com:kyaroo/shopkeep.git`, 0 ahead.
   - `flutter analyze` → **No issues found!**
-  - `flutter test` → **126/126**
+  - `flutter test` → **182/182** (phase 2 close-out)
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -71,7 +71,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **B2** | Listing import service | ✅ 3h (M) | verify **then** bind and merge; a rejected file writes nothing |
 | **B6** | Join rework: « Importer la boutique » | ✅ 3h (M) | file picker + `.myhanoutlisting` VIEW intent, routed by extension |
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
-| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | 1 h (S) | **outstanding** — the release artifacts predate phase 2 (manifest, listing bundle, attribution) |
+| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | 1 h (S) | **outstanding** — on-disk release APKs are stamped 2026-11-16 19:37/19:39, i.e. **before phase 2** (manifest, listing bundle, attribution) |
 | **OPS-1** | Back up the signer private seeds off the build host | 15 min (S) | `~/.myhanout-keystore/signers-seeds.txt` exists **only** on the Linux host; losing it blocks every future authorisation |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | 30 min (S) | other tests sharing that key see its rows; make it self-cleaning like the other POC tests |
 
