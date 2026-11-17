@@ -33,8 +33,9 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   `github.com:kyaroo/shopkeep.git`, 0 ahead.
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **182/182** (phase 2 close-out)
-  - Release APKs 2026-11-17: shopkeeper `030d33f2…`, admin `1bfeb383…`, both
-    signed SHA-256 `67c4aaeb…a690` (`apksigner`), retired-secret grep 0 hits
+  - Release APKs 2026-11-17 (15:52/15:57): shopkeeper sha256 `7d6106b6…`, admin
+    `bb10f725…`, both signed SHA-256 `67c4aaeb…a690` (`apksigner`),
+    retired-secret grep 0 hits everywhere
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -84,7 +85,8 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **B6** | Join rework: « Importer la boutique » | ✅ 3h (M) | file picker + `.myhanoutlisting` VIEW intent, routed by extension |
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
 | **B7** | **Admin listing export UI** — the delivery loop is half-wired | ✅ 2 h (M) | done 2026-11-17 — `ListingPushScreen` (shop picker → signer → signed bundle → share); the admin can now produce a `.myhanoutlisting` |
-| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-17** — `app-shopkeeper-release.apk` sha256 `030d33f2…` (12:50), `app-admin-release.apk` `1bfeb383…` (13:14); grep 0 hits everywhere; both `apksigner`-verified SHA-256 `67c4aaeb…a690` |
+| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-17** — `app-shopkeeper-release.apk` sha256 `7d6106b6…` (15:52), `app-admin-release.apk` `bb10f725…` (15:57); grep 0 hits everywhere; both `apksigner`-verified SHA-256 `67c4aaeb…a690` |
+| **BUILD-1** | The admin release build intermittently fails (exit 1, ~10 min in) | 30 min (S) | 2 failures / 2 successes on identical code. Not diagnosed — needs the full Gradle log on the next failure. Blocks reliable release builds until understood |
 | **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
 | **C2** | The `content://` transport is not device-verified | 1 h (S) | the round-trip proved routing/verify/bind/merge over a `file://` URI into the app's own dir; real delivery (WhatsApp / `Share.shareXFiles`) sends `content://`, which `openInputStream` handles but which has not been exercised on a device |
