@@ -33,6 +33,8 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   `github.com:kyaroo/shopkeep.git`, 0 ahead.
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **182/182** (phase 2 close-out)
+  - Release APKs 2026-11-17: shopkeeper `030d33f2…`, admin `1bfeb383…`, both
+    signed SHA-256 `67c4aaeb…a690` (`apksigner`), retired-secret grep 0 hits
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -72,7 +74,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **B6** | Join rework: « Importer la boutique » | ✅ 3h (M) | file picker + `.myhanoutlisting` VIEW intent, routed by extension |
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
 | **B7** | **Admin listing export UI** — the delivery loop is half-wired | 2 h (M) | **nothing calls `ListingExportBuilder`** (no screen, no tool; tests only). The shopkeeper can import a `.myhanoutlisting` but the admin cannot produce one, so the channel cannot be exercised end-to-end |
-| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | 1 h (S) | **outstanding** — on-disk release APKs are stamped 2026-11-16 19:37/19:39, i.e. **before phase 2** (manifest, listing bundle, attribution) |
+| **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-17** — `app-shopkeeper-release.apk` sha256 `030d33f2…` (12:50), `app-admin-release.apk` `1bfeb383…` (13:14); grep 0 hits everywhere; both `apksigner`-verified SHA-256 `67c4aaeb…a690` |
 | **OPS-1** | Back up the signer private seeds off the build host | 15 min (S) | `~/.myhanout-keystore/signers-seeds.txt` exists **only** on the Linux host; losing it blocks every future authorisation |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | 30 min (S) | other tests sharing that key see its rows; make it self-cleaning like the other POC tests |
 
