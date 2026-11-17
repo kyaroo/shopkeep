@@ -8,12 +8,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myhanout/app_router.dart';
 import 'package:myhanout/app_state.dart';
-import 'package:myhanout/data/listing_import_file.dart';
+import 'package:myhanout/data/catalog_delta.dart';
+import 'package:myhanout/data/listing_bundle.dart';
 import 'package:myhanout/data/myhanout_file.dart';
+import 'package:myhanout/data/signing.dart';
 import 'package:myhanout/data/settings_service.dart';
+import 'package:myhanout/models/listing_row.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'helpers/signing_trust.dart';
 
 void main() {
   setUpAll(() {
@@ -81,15 +86,35 @@ void main() {
     expect(result, startsWith('rejected:'));
   });
 
-  test('VIEW intents are routed by extension, not by MIME type alone', () {
-    expect(
-        ListingImportFile.isListingUri(
-            'content://x/listing_hanouti_v7.myhanoutlisting'),
-        isTrue);
-    expect(ListingImportFile.isListingUri('content://x/catalog_v8.myhanout'),
-        isFalse);
-    // Case-insensitive: file managers differ on the extension casing.
-    expect(ListingImportFile.isListingUri('file://x/LISTING.MYHANOUTLISTING'),
-        isTrue);
+  test('routing uses the signed format, not the URI spelling', () async {
+    // Regression: a `content://` URI carries no extension, so matching on
+    // `.myhanoutlisting` sent real listing bundles down the catalog path.
+    final trust = await SigningTrust.create();
+    final listing = await Signing.signArtifactFile(
+      ListingBundle(
+        signerId: SigningTrust.adminId,
+        shopKey: 'hanouti',
+        catalogVersion: 7,
+        generatedAt: 1,
+        rows: const [ListingRow(barcode: '0011210006508', priceCents: 890, stockQty: 12)],
+      ).toPayload(),
+      trust.seed(SigningTrust.adminId),
+    );
+    final delta = await Signing.signArtifactFile(
+      CatalogDelta(
+        signerId: SigningTrust.adminId,
+        baseVersion: 1,
+        targetVersion: 2,
+        generatedAt: 2,
+        upserts: const [],
+      ).toPayload(),
+      trust.seed(SigningTrust.adminId),
+    );
+
+    expect(MyhanoutFile.sniffFormat(listing), ListingBundle.format);
+    expect(MyhanoutFile.sniffFormat(delta), CatalogDelta.format);
+    for (final junk in ['', '{', 'null', 'not-a-bundle', '{"format": 123}']) {
+      expect(MyhanoutFile.sniffFormat(junk), isNull, reason: junk);
+    }
   });
 }

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'catalog_delta.dart';
 import 'catalog_db.dart';
 import 'db.dart';
-import 'listing_import_file.dart';
+import 'listing_bundle.dart';
+import '../services/listing_import_service.dart';
 import 'settings_service.dart';
 import 'signers_directory.dart';
 import 'signing.dart';
@@ -20,16 +21,18 @@ class MyhanoutFile {
   /// Handles the VIEW intent the app was launched with, if any.
   /// Returns a short human-readable outcome, or null when there was no file.
   ///
-  /// Routing is by extension: `.myhanoutlisting` is a shop listing bundle
-  /// (verified and imported), anything else is treated as a catalog delta.
+  /// Routing is on the **payload's own `format` field**, not on the URI
+  /// spelling: a `content://` URI from WhatsApp or a FileProvider usually
+  /// carries no file extension, so matching on `.myhanoutlisting` silently
+  /// sent real listing bundles down the catalog path.
   static Future<String?> handleLaunchIntent({SettingsService? settings}) async {
-    String? uri;
+    final String uri;
     try {
-      uri = await _channel.invokeMethod<String>('getInitialUri');
+      uri = (await _channel.invokeMethod<String>('getInitialUri')) ?? '';
     } catch (_) {
-      // Channel not available (tests, non-Android) — nothing to do.
+      return null; // Channel not available (tests, non-Android).
     }
-    if (uri == null || uri.isEmpty) return null;
+    if (uri.isEmpty) return null;
     // Consume it: the intent must not be applied a second time by whichever
     // screen mounts next (entry screen -> app after a successful import).
     try {
@@ -37,12 +40,34 @@ class MyhanoutFile {
     } catch (_) {
       // Non-Android / tests: nothing to clear.
     }
-    if (ListingImportFile.isListingUri(uri)) {
-      final outcome =
-          await ListingImportFile.applyUri(uri, settings: settings);
-      return outcome.ok ? 'applied ${outcome.merge!.touched} row(s)' : 'rejected: ${outcome.error}';
+
+    final String json;
+    try {
+      json = (await _channel.invokeMethod<String>('readUri', {'uri': uri})) ?? '';
+    } catch (_) {
+      return 'rejected: unreadable file';
     }
-    return applyUri(uri, settings: settings);
+    if (json.isEmpty) return 'rejected: unreadable file';
+
+    if (sniffFormat(json) == ListingBundle.format) {
+      final outcome = await ListingImportService.apply(json, settings: settings);
+      return outcome.ok
+          ? 'applied ${outcome.merge!.touched} row(s)'
+          : 'rejected: ${outcome.error}';
+    }
+    return applyJson(json, settings: settings);
+  }
+
+  /// The `format` field of an artifact file, or null if it is not one.
+  ///
+  /// It lives inside the signed payload, so it is trustworthy in a way the URI
+  /// spelling is not.
+  static String? sniffFormat(String json) {
+    try {
+      return Signing.splitArtifact(json).$1['format'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Reads and applies a `.myhanout` URI (`file://` or `content://`).

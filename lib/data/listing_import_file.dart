@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-import '../data/listing_bundle.dart';
 import '../services/listing_import_service.dart';
 import 'settings_service.dart';
 
@@ -49,9 +48,4 @@ class ListingImportFile {
       return ListingImportOutcome.rejected('unreadable file');
     }
   }
-
-  /// True when [uri] looks like a listing bundle rather than a catalog delta.
-  /// The extension is the routing key for VIEW intents.
-  static bool isListingUri(String uri) =>
-      uri.toLowerCase().contains(ListingBundle.fileExtension);
 }
