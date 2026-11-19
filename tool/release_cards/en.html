@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>myhanout installation card</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 46em; margin: 2em auto; line-height: 1.5; }
+  h1 { font-size: 1.4em; }
+  code, .fp { font-family: ui-monospace, monospace; }
+  .fp { background: #f4f4f4; padding: 0.8em; border-left: 4px solid #0D6E5C; font-size: 1.05em; }
+  .stop { border: 2px solid #991B1B; padding: 0.7em; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>myhanout — installation card</h1>
+<p>Version {{VERSION}} · build {{BUILD}} · {{DATE}}</p>
+
+<h2>Identity of a genuine app</h2>
+<p>Signing certificate SHA-256 fingerprint — compare it digit by digit:</p>
+<p class="fp">67c4aaeb303c704c 8ae6b6cd29a48c62 9b0977e3958b8020 72f2c3f8f695a690</p>
+
+<h2>For the person installing</h2>
+<ol>
+  <li>Get this file from a person you trust — the founder or an administrator.</li>
+  <li>On Android, open the APK. If asked, allow installation from your file manager.</li>
+  <li class="stop"><strong>If the phone asks you to uninstall the existing myhanout first — STOP.</strong>
+      That means the certificate is different. Do not install.</li>
+</ol>
+
+<h2>For an administrator before forwarding</h2>
+<ol>
+  <li>Check integrity: <code>sha256sum -c SHA256SUMS</code></li>
+  <li>Check identity: <code>apksigner verify --print-certs &lt;apk&gt;</code> — the SHA-256 digest must equal the fingerprint above.</li>
+  <li>Or check both at once: <code>bash tool/verify_release_bundle.sh &lt;kit-folder&gt;</code></li>
+  <li>Forward the <strong>whole kit</strong> (APK + RELEASE.txt + SHA256SUMS + cards), not a lone APK.</li>
+</ol>
+
+<p><em>No Play Store. No download link. No automatic update. A new version is announced by a person, never fetched.</em></p>
+</body>
+</html>

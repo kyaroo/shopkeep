@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/settings_service.dart';
+import '../data/signer_import.dart';
 import '../services/listing_export_service.dart';
+import '../utils/shop_l10n.dart';
 
 /// « Exporter la liste » — builds a signed `.myhanoutlisting` for one shop and
 /// hands it over (WhatsApp / share sheet), exactly like the catalog delta.
@@ -18,7 +20,17 @@ import '../services/listing_export_service.dart';
 /// No network: the file is delivered by hand, and the shopkeeper verifies it
 /// offline against the signers directory.
 class ListingPushScreen extends StatefulWidget {
-  const ListingPushScreen({super.key, this.exporter, this.deliverer});
+  const ListingPushScreen({
+    super.key,
+    this.shopKey,
+    this.exporter,
+    this.deliverer,
+    this.rootPublicKey,
+  });
+
+  /// Pre-selected shop (e.g. from the Shops tab per-shop menu). When provided
+  /// the picker is skipped and the export targets this key directly.
+  final String? shopKey;
 
   /// Builds the bundle for [shopKey]. Defaults to the real
   /// [ListingExportBuilder.export]; injected by tests, because sqflite cannot
@@ -33,6 +45,10 @@ class ListingPushScreen extends StatefulWidget {
   /// file IO cannot be awaited inside a `testWidgets` FakeAsync zone.
   final Future<void> Function(
       String shopKey, String fileName, String json)? deliverer;
+
+  /// Root public key for the directory lookup. Defaults to the baked root;
+  /// tests inject a throwaway trust anchor.
+  final List<int>? rootPublicKey;
 
   @override
   State<ListingPushScreen> createState() => _ListingPushScreenState();
@@ -86,8 +102,8 @@ class _ListingPushScreenState extends State<ListingPushScreen> {
     if (!mounted) return;
     setState(() {
       _shops = list;
-      _selected =
-          list.contains(current) ? current : (list.isEmpty ? '' : list.first);
+      _selected = widget.shopKey ??
+          (list.contains(current) ? current : (list.isEmpty ? '' : list.first));
       _loading = false;
     });
   }
@@ -110,6 +126,17 @@ class _ListingPushScreenState extends State<ListingPushScreen> {
         // unsigned bundle the shopkeeper would reject anyway.
         if (mounted) setState(() => _building = false);
         _snack('catalogPushNoSigner');
+        return;
+      }
+      // Re-check the role from the ROOT-verified directory at push time: an
+      // edited `active_signer_id` must never turn a salesman into a distributor.
+      final role = await SignerSeedImport.activeRole(
+        _settings,
+        rootPublicKey: widget.rootPublicKey,
+      );
+      if (!SignerSeedImport.canPush(role)) {
+        if (mounted) setState(() => _building = false);
+        _snack('Only founder or admin signers can distribute');
         return;
       }
 
@@ -149,8 +176,11 @@ class _ListingPushScreenState extends State<ListingPushScreen> {
           const SizedBox(height: 16),
           if (_loading)
             const Center(child: CircularProgressIndicator())
-          else if (_shops.isEmpty)
+          else if (_shops.isEmpty && widget.shopKey == null)
             Text('listingPushNoShops'.tr())
+          else if (widget.shopKey != null)
+            Text(shopInfoTr(context, 'listingPushTarget',
+                namedArgs: {'key': _selected}))
           else
             DropdownButton<String>(
               value: _selected.isEmpty ? null : _selected,

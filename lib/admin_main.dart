@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:provider/provider.dart';
-import 'data/catalog_db.dart';
-import 'data/settings_service.dart';
-import 'models/catalog_entry.dart';
-import 'screens/admin_setup_screen.dart';
-import 'theme.dart';
+import 'package:flutter/material.dart';
 
+import 'admin_home_app.dart';
+import 'data/settings_service.dart';
+
+/// Standalone admin entry point. Opens the SAME non-blocking shell as the
+/// `ADMIN=true` build of `main.dart`; `AdminSetupScreen` is a section inside it,
+/// not an app root.
 const supportedLocales = [
   Locale('en'),
   Locale('fr'),
@@ -16,47 +16,15 @@ const supportedLocales = [
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
-  runApp(const AdminSetupApp());
+  const settings = ConfigSettingsService();
+  runApp(const AdminHomeApp(settings: settings));
 }
 
+// Kept as a thin alias for any tooling that referenced the old root.
 class AdminSetupApp extends StatelessWidget {
-  const AdminSetupApp({super.key});
+  final SettingsService settings;
+  const AdminSetupApp({super.key, required this.settings});
 
   @override
-  Widget build(BuildContext context) {
-    return EasyLocalization(
-      supportedLocales: supportedLocales,
-      path: 'assets/lang',
-      fallbackLocale: const Locale('en'),
-      startLocale: const Locale('fr'),
-      useOnlyLangCode: true,
-      saveLocale: true,
-      child: MultiProvider(
-        providers: [
-          Provider<SettingsService>.value(value: const ConfigSettingsService()),
-          Provider<CatalogRepository>.value(value: CatalogDb.instance),
-        ],
-        child: const _AdminLocalizedApp(),
-      ),
-    );
-  }
-}
-
-class _AdminLocalizedApp extends StatelessWidget {
-  const _AdminLocalizedApp();
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'myhanoutadmin',
-      localizationsDelegates: context.localizationDelegates,
-      supportedLocales: context.supportedLocales,
-      locale: context.locale,
-      theme: AppPalette.theme(
-        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
-      ),
-      home: const AdminSetupScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
+  Widget build(BuildContext context) => AdminHomeApp(settings: settings);
 }

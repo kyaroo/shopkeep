@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:myhanout/main.dart';
 import 'package:provider/provider.dart';
+import 'admin_home_app.dart';
 import 'app_state.dart';
+import 'build_config.dart';
 import 'data/settings_service.dart';
 
 /// Stateless route resolver that replaces the inline `ShopHost` / `EndUserHost`
@@ -29,6 +31,10 @@ class AppRouter extends StatelessWidget {
       value: appState,
       child: Consumer<AppState>(
         builder: (context, state, _) {
+          // Admin flavor ALWAYS opens the non-blocking shell, even when a shop
+          // is active. A compile-time const, so this is stripped from the
+          // shopkeeper build (which keeps its existing shop-entry routing).
+          if (kIsAdmin) return AdminHomeApp(settings: settings);
           if (state.shopKey.isEmpty) {
             return ShopEntryApp(settings: settings);
           }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fiche d'installation myhanout</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 46em; margin: 2em auto; line-height: 1.5; }
+  h1 { font-size: 1.4em; }
+  code, .fp { font-family: ui-monospace, monospace; }
+  .fp { background: #f4f4f4; padding: 0.8em; border-left: 4px solid #0D6E5C; font-size: 1.05em; }
+  .stop { border: 2px solid #991B1B; padding: 0.7em; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>myhanout — fiche d'installation</h1>
+<p>Version {{VERSION}} · build {{BUILD}} · {{DATE}}</p>
+
+<h2>Identité d'une application authentique</h2>
+<p>Empreinte SHA-256 du certificat de signature — à comparer chiffre par chiffre :</p>
+<p class="fp">67c4aaeb303c704c 8ae6b6cd29a48c62 9b0977e3958b8020 72f2c3f8f695a690</p>
+
+<h2>Pour la personne qui installe</h2>
+<ol>
+  <li>Recevez ce fichier d'une personne de confiance : le fondateur ou un administrateur.</li>
+  <li>Sur Android, ouvrez l'APK. Si demandé, autorisez l'installation depuis votre gestionnaire de fichiers.</li>
+  <li class="stop"><strong>Si le téléphone demande de désinstaller le myhanout existant d'abord — ARRÊTEZ.</strong>
+      Cela signifie un certificat différent. N'installez pas.</li>
+</ol>
+
+<h2>Pour un administrateur avant de transmettre</h2>
+<ol>
+  <li>Intégrité : <code>sha256sum -c SHA256SUMS</code></li>
+  <li>Identité : <code>apksigner verify --print-certs &lt;apk&gt;</code> — l'empreinte SHA-256 doit égaler celle ci-dessus.</li>
+  <li>Ou les deux à la fois : <code>bash tool/verify_release_bundle.sh &lt;dossier-du-kit&gt;</code></li>
+  <li>Transmettez le <strong>kit complet</strong> (APK + RELEASE.txt + SHA256SUMS + fiches), pas un APK isolé.</li>
+</ol>
+
+<p><em>Pas de Play Store. Pas de lien de téléchargement. Pas de mise à jour automatique. Une nouvelle version est annoncée par une personne, jamais téléchargée.</em></p>
+</body>
+</html>

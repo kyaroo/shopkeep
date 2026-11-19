@@ -29,7 +29,10 @@ class CatalogDelta {
   /// The catalog version this delta applies to (the shopkeeper's installed one).
   final int baseVersion;
 
-  /// The catalog version after applying it. Must be `baseVersion + 1`.
+  /// The catalog version after applying it. Any generation greater than
+  /// [baseVersion] is valid: distribution delivers **one multi-generation
+  /// delta** `base = M` (the shop) → `target = N` (the admin), covering
+  /// generations M+1…N.
   final int targetVersion;
   final int generatedAt;
   final List<CatalogEntry> upserts;
@@ -106,9 +109,10 @@ class CatalogDelta {
     if (base is! int || target is! int) {
       return DeltaVerification.failed('malformed-field');
     }
-    // Defence in depth: the build side already emits base+1; a delta that
-    // jumps the version is rejected so a leaked key cannot desync every shop.
-    if (target != base + 1) {
+    // Defence in depth: the build side emits base+1 (or a multi-generation
+    // base→target for distribution), but a delta that does not move the
+    // catalog FORWARD is rejected so a leaked key cannot desync every shop.
+    if (target <= base) {
       return DeltaVerification.failed('version jump');
     }
 
@@ -176,4 +180,16 @@ class DeltaVerification {
         signerName = null;
 
   bool get ok => delta != null;
+}
+
+/// A [CatalogRepository] that can apply a whole delta in **one transaction**.
+///
+/// The admin pull path uses this: a multi-page diff must either land
+/// completely or not at all, because a half-applied catalog would desync every
+/// shop that later receives a delta built against the full generation.
+abstract class TransactionalCatalogRepository implements CatalogRepository {
+  Future<void> applyDeltaAtomic({
+    required List<CatalogEntry> upserts,
+    required List<String> deletes,
+  });
 }

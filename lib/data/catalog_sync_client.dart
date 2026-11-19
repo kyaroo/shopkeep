@@ -50,6 +50,32 @@ class ShopRow {
       );
 }
 
+/// One page of `GET /v1/shops/search`, ordered by `shop_key` on the server.
+class ShopSearchResult {
+  final List<ShopRow> items;
+  final int total;
+  final int limit;
+  final int offset;
+
+  const ShopSearchResult({
+    required this.items,
+    required this.total,
+    required this.limit,
+    required this.offset,
+  });
+
+  bool get hasMore => offset + items.length < total;
+
+  factory ShopSearchResult.fromMap(Map<String, dynamic> m) => ShopSearchResult(
+        items: ((m['items'] as List?) ?? const [])
+            .map((raw) => ShopRow.fromMap(raw as Map<String, dynamic>))
+            .toList(),
+        total: (m['total'] as num?)?.toInt() ?? 0,
+        limit: (m['limit'] as num?)?.toInt() ?? 0,
+        offset: (m['offset'] as num?)?.toInt() ?? 0,
+      );
+}
+
 /// Builds a catalog sync client. Injectable so services and tests can supply
 /// their own instead of the static [SyncConfig.defaultClient] locator.
 typedef CatalogSyncClientFactory = Future<CatalogSyncClient> Function();
@@ -175,6 +201,37 @@ class CatalogSyncClient {
         .toList();
   }
 
+  /// Paged shop search (`GET /v1/shops/search`). Replaces the old one-shot
+  /// `listShops` for large catalogs. `limit` is capped at 100 by the server.
+  Future<ShopSearchResult> searchShops({
+    String q = '',
+    int? minVersion,
+    int? maxVersion,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final params = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+    };
+    if (q.trim().isNotEmpty) params['q'] = q.trim();
+    if (minVersion != null) params['min_version'] = '$minVersion';
+    if (maxVersion != null) params['max_version'] = '$maxVersion';
+    final uri = Uri.parse('$baseUrl/v1/shops/search')
+        .replace(queryParameters: params);
+    final resp = await _client
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 15));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('search shops ${resp.statusCode}: ${resp.body}');
+    }
+    return ShopSearchResult.fromMap(
+        jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
   /// Looks up a shop on the server. Returns the row if found, else null.
   Future<ShopRow?> getShop(String shopKey) async {
     final resp = await _client
@@ -188,6 +245,47 @@ class CatalogSyncClient {
       throw SyncException('get shop ${resp.statusCode}: ${resp.body}');
     }
     return ShopRow.fromMap(jsonDecode(resp.body) as Map<String, dynamic>);
+  }
+
+  /// `GET /v1/catalog/version` — the server's latest global generation.
+  /// Owner-token only; the caller sends its stored token.
+  Future<int> catalogVersion() async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/catalog/version'), headers: _headers)
+        .timeout(const Duration(seconds: 12));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('catalog version ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return (data['version'] as num?)?.toInt() ?? 0;
+  }
+
+  /// One page of `GET /v1/catalog/diff` (owner token only). The server clamps
+  /// `limit` to 1..100 and returns only `version > fromVersion`.
+  Future<CatalogDiffPage> catalogDiff({
+    required int fromVersion,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/catalog/diff').replace(queryParameters: {
+      'from_version': '$fromVersion',
+      'limit': '$limit',
+      'offset': '$offset',
+    });
+    final resp = await _client
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 20));
+    if (resp.statusCode == 401 || resp.statusCode == 403) {
+      throw SyncAuthException('auth failed (${resp.statusCode})');
+    }
+    if (resp.statusCode != 200) {
+      throw SyncException('catalog diff ${resp.statusCode}: ${resp.body}');
+    }
+    return CatalogDiffPage.fromMap(
+        jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
   void close() => _client.close();
@@ -305,6 +403,94 @@ class CatalogSyncClient {
     return CatalogSearchResult.fromMap(
         jsonDecode(resp.body) as Map<String, dynamic>);
   }
+}
+
+/// One change row of `GET /v1/catalog/diff`.
+///
+/// The server returns `op` = `upsert` (with a stored [row]) or `delete`
+/// (row null), only for `version > from_version`, ordered by
+/// `(version, barcode)`. [row] is the stored payload; the shop listing
+/// (price/stock) never travels here.
+class CatalogDiffChange {
+  final int version;
+  final String barcode;
+  final String op;
+  final CatalogEntry? row;
+
+  const CatalogDiffChange({
+    required this.version,
+    required this.barcode,
+    required this.op,
+    this.row,
+  });
+
+  /// A change is a tombstone when the server says `delete` or omits the row.
+  bool get isDelete => op == 'delete' || row == null;
+
+  factory CatalogDiffChange.fromMap(Map<String, dynamic> m) {
+    final barcode = (m['barcode'] ?? '') as String;
+    final op = (m['op'] ?? 'upsert') as String;
+    final rawRow = m['row'];
+    CatalogEntry? row;
+    if (rawRow is Map) {
+      final r = Map<String, dynamic>.from(rawRow);
+      final photoB64 = r['photo_base64'] as String?;
+      row = CatalogEntry(
+        barcode: barcode,
+        name: (r['name'] ?? '') as String,
+        nameAr: r['name_ar'] as String?,
+        nameEn: r['name_en'] as String?,
+        category: r['category'] as String?,
+        photo: (photoB64 == null || photoB64.isEmpty)
+            ? null
+            : base64Decode(photoB64),
+        createdAt: (r['created_at'] as num?)?.toInt() ?? 0,
+        updatedAt: (r['updated_at'] as num?)?.toInt() ?? 0,
+      );
+    }
+    return CatalogDiffChange(
+      version: (m['version'] as num?)?.toInt() ?? 0,
+      barcode: barcode,
+      op: op,
+      row: row,
+    );
+  }
+}
+
+/// One page of `GET /v1/catalog/diff`.
+class CatalogDiffPage {
+  final int fromVersion;
+  final int toVersion;
+  final int total;
+  final int limit;
+  final int offset;
+  final int? nextOffset;
+  final List<CatalogDiffChange> changes;
+
+  const CatalogDiffPage({
+    required this.fromVersion,
+    required this.toVersion,
+    required this.total,
+    required this.limit,
+    required this.offset,
+    required this.changes,
+    this.nextOffset,
+  });
+
+  bool get hasMore => nextOffset != null;
+
+  factory CatalogDiffPage.fromMap(Map<String, dynamic> m) => CatalogDiffPage(
+        fromVersion: (m['from_version'] as num?)?.toInt() ?? 0,
+        toVersion: (m['to_version'] as num?)?.toInt() ?? 0,
+        total: (m['total'] as num?)?.toInt() ?? 0,
+        limit: (m['limit'] as num?)?.toInt() ?? 0,
+        offset: (m['offset'] as num?)?.toInt() ?? 0,
+        nextOffset: (m['next_offset'] as num?)?.toInt(),
+        changes: ((m['changes'] as List?) ?? const [])
+            .map((raw) =>
+                CatalogDiffChange.fromMap(Map<String, dynamic>.from(raw as Map)))
+            .toList(),
+      );
 }
 
 class SyncException implements Exception {

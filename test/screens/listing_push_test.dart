@@ -58,6 +58,7 @@ void main() {
     await Config.init();
 
     const settings = ConfigSettingsService();
+    await settings.saveSignersEnvelope(trust.directory.envelope);
     await settings.setActiveSignerId(SigningTrust.adminId);
     await settings.saveSignerKey(
         SigningTrust.adminId, trust.seed(SigningTrust.adminId));
@@ -120,6 +121,7 @@ void main() {
               supportedLocales: context.supportedLocales,
               locale: context.locale,
               home: ListingPushScreen(
+                rootPublicKey: trust.rootPublic,
                 exporter: exporter,
                 deliverer: (shopKey, fileName, json) async {
                   capturedName = fileName;

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>بطاقة تثبيت myhanout</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 46em; margin: 2em auto; line-height: 1.7; }
+  h1 { font-size: 1.4em; }
+  code, .fp { font-family: ui-monospace, monospace; direction: ltr; }
+  .fp { background: #f4f4f4; padding: 0.8em; border-right: 4px solid #0D6E5C; font-size: 1.05em; }
+  .stop { border: 2px solid #991B1B; padding: 0.7em; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>myhanout — بطاقة تثبيت</h1>
+<p>الإصدار {{VERSION}} · البناء {{BUILD}} · {{DATE}}</p>
+
+<h2>هوية التطبيق الأصلي</h2>
+<p>بصمة SHA-256 لشهادة التوقيع — قارنها رقماً برقم:</p>
+<p class="fp">67c4aaeb303c704c 8ae6b6cd29a48c62 9b0977e3958b8020 72f2c3f8f695a690</p>
+
+<h2>للمستخدم الذي يثبّت التطبيق</h2>
+<ol>
+  <li>احصل على الملف من شخص تثق به: المؤسِّس أو المسؤول.</li>
+  <li>على أندرويد، افتح ملف APK. إذا طُلب ذلك، اسمح بالتثبيت من مدير الملفات.</li>
+  <li class="stop"><strong>إذا طلب الهاتف إلغاء تثبيت تطبيق myhanout الحالي أولاً — توقّف.</strong>
+      هذا يعني أن الشهادة مختلفة. لا تثبّت.</li>
+</ol>
+
+<h2>للمسؤول قبل إعادة الإرسال</h2>
+<ol>
+  <li>السلامة: <code>sha256sum -c SHA256SUMS</code></li>
+  <li>الهوية: <code>apksigner verify --print-certs &lt;apk&gt;</code> — يجب أن تساوي بصمة SHA-256 البصمة أعلاه.</li>
+  <li>أو الاثنان معاً: <code>bash tool/verify_release_bundle.sh &lt;مجلد-الحزمة&gt;</code></li>
+  <li>أرسل <strong>الحزمة كاملة</strong> (APK + RELEASE.txt + SHA256SUMS + البطاقات)، وليس ملف APK وحده.</li>
+</ol>
+
+<p><em>لا متجر Play، لا رابط تحميل، لا تحديث تلقائي. الإصدار الجديد يعلنه شخص، ولا يُحمّل من الإنترنت.</em></p>
+</body>
+</html>

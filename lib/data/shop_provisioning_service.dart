@@ -10,15 +10,35 @@ class DuplicateShopKeyException implements Exception {
   const DuplicateShopKeyException();
 }
 
+/// Outcome of a shop creation.
+///
+/// [registered] is false when server registration was skipped
+/// (`registerOnServer: false`), when sync is unconfigured, or when the
+/// registration call failed. The local shop exists either way and stays
+/// usable offline — the UI surfaces the state instead of pretending the
+/// server knows about it.
+class ShopCreationResult {
+  final String shopKey;
+  final bool registered;
+
+  const ShopCreationResult({
+    required this.shopKey,
+    required this.registered,
+  });
+}
+
 /// Single source of truth for creating a shop (persistence + server
 /// registration + provisioning token). Used by both admin setup and shop entry
 /// so key generation and registration stay consistent.
 class ShopProvisioningService {
   ShopProvisioningService._();
 
-  /// Creates a shop and returns its final shop key.
-  /// Throws [DuplicateShopKeyException] if the key already exists.
-  static Future<String> createShop({
+  /// Creates a shop and returns its outcome.
+  ///
+  /// Throws [DuplicateShopKeyException] if the key already exists. A failed
+  /// registration is NOT thrown: the local shop is already created and the
+  /// caller reports `registered: false`.
+  static Future<ShopCreationResult> createShop({
     required String name,
     String? key,
     bool registerOnServer = true,
@@ -41,17 +61,24 @@ class ShopProvisioningService {
     await store.saveBusinessName(name);
     await store.saveShopBusinessName(finalKey, name);
 
+    var registered = false;
     if (registerOnServer) {
-      try {
-        final client = await (clientFactory ?? SyncConfig.defaultClient)();
-        await client.registerShop(finalKey, name);
-        client.close();
-      } catch (e) {
-        // Server may be unreachable; local shop still created.
-        logWarning('shop registration on server failed', error: e);
+      // Unconfigured sync must not silently look like a successful
+      // registration: check before dialling out.
+      final configured = await SyncConfig.load();
+      if (configured.isConfigured) {
+        try {
+          final client = await (clientFactory ?? SyncConfig.defaultClient)();
+          await client.registerShop(finalKey, name);
+          client.close();
+          registered = true;
+        } catch (e) {
+          // Server may be unreachable; local shop still created.
+          logWarning('shop registration on server failed', error: e);
+        }
       }
     }
-    return finalKey;
+    return ShopCreationResult(shopKey: finalKey, registered: registered);
   }
 
   /// Builds the signed provisioning QR envelope for a shop.

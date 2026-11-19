@@ -70,8 +70,9 @@ Future<void> main() async {
 
   // ---- 1. admin side: build ----
   final result = await CatalogPushBuilder.buildPayload(
-    localVersion: base,
+    localVersion: base + 1,
     shopVersion: base,
+    targetVersion: base + 1,
     signerId: signerId,
     privateSeed: adminSeed,
     entries: entries,

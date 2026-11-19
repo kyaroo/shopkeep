@@ -11,6 +11,9 @@ class ArtifactFormat {
   static const signers = 'myhanout-signers-v1';
   static const provision = 'myhanout-provision-v1';
   static const catalogDelta = 'myhanout-catalog-delta';
+
+  /// In-app signer seed envelope (QR / `.myhanoutseed` file).
+  static const signerSeed = 'myhanout-signer-seed-v1';
 }
 
 /// Baked trust anchor: the founder ROOT public key (Ed25519, 32 bytes,

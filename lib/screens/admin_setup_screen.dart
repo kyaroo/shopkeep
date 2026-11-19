@@ -2,24 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../build_config.dart';
+import '../data/catalog_sync_client.dart';
 import '../data/settings_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../data/provisioning.dart';
 import '../utils/slug.dart';
 import '../utils/app_log.dart';
+import '../utils/shop_l10n.dart';
 import '../data/sync_config.dart';
-import '../providers/catalog_provider.dart';
-import 'catalog_home_page.dart';
-import 'catalog_push_screen.dart';
 import 'listing_push_screen.dart';
+import 'shop_entry_screen.dart';
+import 'shop_info_screen.dart';
 
 /// Admin setup screen: create / manage shops.
 ///
 /// This is a separate app entry point in the admin APK. It never shows
 /// checkout, inventory, or sales — only shop management.
 class AdminSetupScreen extends StatefulWidget {
-  const AdminSetupScreen({super.key});
+  /// When true this is a section inside the admin home shell, not an app root.
+  final bool embedded;
+
+  /// Trust root for the pushed Shop-info / listing screens. Production leaves
+  /// this null (baked root); tests inject a throwaway root.
+  final List<int>? rootPublicKey;
+
+  /// Sync-client factory for server registration. Defaults to
+  /// [SyncConfig.defaultClient]; tests inject a fake.
+  final CatalogSyncClientFactory? clientFactory;
+
+  const AdminSetupScreen({
+    super.key,
+    this.embedded = false,
+    this.rootPublicKey,
+    this.clientFactory,
+  });
 
   @override
   State<AdminSetupScreen> createState() => _AdminSetupScreenState();
@@ -32,6 +48,15 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
   final _shopKeyController = TextEditingController();
   List<String> _shopKeys = [];
   bool _loading = true;
+
+  /// Last created shop + its registration outcome, surfaced as an explicit
+  /// state (the local shop stays usable either way).
+  String? _createdKey;
+  bool _createdRegistered = false;
+
+  Future<void> _push(Widget page) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
 
   @override
   void initState() {
@@ -67,13 +92,18 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     if (name.isEmpty) return;
     final requestedKey = _shopKeyController.text.trim();
     try {
-      final key = await ShopProvisioningService.createShop(
+      final result = await ShopProvisioningService.createShop(
         name: name,
         key: requestedKey.isEmpty ? null : requestedKey,
         settings: _settings,
+        clientFactory: widget.clientFactory,
       );
       if (mounted) {
-        _showProvisioningQr(key, name);
+        setState(() {
+          _createdKey = result.shopKey;
+          _createdRegistered = result.registered;
+        });
+        _showProvisioningQr(result.shopKey, name);
         _nameController.clear();
         _shopKeyController.clear();
         _loadShops();
@@ -131,14 +161,54 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
     );
   }
 
+  /// Explicit registration outcome for the shop just created. The local shop
+  /// is usable either way; this only tells the admin whether the server knows
+  /// about it.
+  Widget _registrationStateCard(String key, bool registered) {
+    final scheme = Theme.of(context).colorScheme;
+    final body = registered
+        ? shopInfoTr(context, 'shopCreatedRegistered', namedArgs: {'key': key})
+        : shopInfoTr(context, 'shopCreatedNotRegistered',
+            namedArgs: {'key': key});
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              registered ? Icons.check_circle : Icons.cloud_off,
+              color: registered ? scheme.primary : scheme.error,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    shopInfoTr(context,
+                        registered ? 'shopRegistered' : 'shopNotRegistered'),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(body),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('adminSetup'.tr())),
-      body: _loading
+    final body = SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Card(
                   child: Padding(
@@ -174,6 +244,10 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                     ),
                   ),
                 ),
+                if (_createdKey != null) ...[
+                  const SizedBox(height: 16),
+                  _registrationStateCard(_createdKey!, _createdRegistered),
+                ],
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -208,9 +282,28 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                                   ),
                                   PopupMenuButton<String>(
                                 onSelected: (v) {
+                                  if (v == 'info') {
+                                    _push(ShopInfoScreen(shopKey: key));
+                                  }
+                                  if (v == 'listing') {
+                                    _push(ListingPushScreen(
+                                      shopKey: key,
+                                      rootPublicKey: widget.rootPublicKey,
+                                    ));
+                                  }
                                   if (v == 'delete') _confirmDelete(key);
                                 },
                                 itemBuilder: (_) => [
+                                  PopupMenuItem<String>(
+                                    value: 'info',
+                                    child: Text(shopInfoTr(
+                                        context, 'catalogPushShopInfo')),
+                                  ),
+                                  PopupMenuItem<String>(
+                                    value: 'listing',
+                                    child: Text(shopInfoTr(
+                                        context, 'shopMenuExportListing')),
+                                  ),
                                   PopupMenuItem<String>(
                                     value: 'delete',
                                     child: Text('delete'.tr(),
@@ -227,66 +320,31 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
                     ),
                   ),
                 ),
-                if (kIsAdmin) ...[
+                // Catalog / distribution tools live in the AdminHome Catalog
+                // tab only (decisions 2a, 3a, 4b). No duplicate card here.
+                if (widget.embedded) ...[
                   const SizedBox(height: 16),
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Catalog (founder)',
-                              style: Theme.of(context).textTheme.titleLarge),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => ChangeNotifierProvider(
-                                    create: (_) => CatalogProvider()..init(),
-                                    child: const CatalogHomePage(),
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.qr_code_scanner),
-                            label: const Text('Open Catalog'),
+                    child: ListTile(
+                      leading: const Icon(Icons.login),
+                      title: Text('joinShop'.tr()),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ShopEntryScreen(),
                           ),
-                          const SizedBox(height: 8),
-                          // Distribution du catalogue: build a signed `.myhanout`
-                          // delta and hand it to one shop (WhatsApp / share).
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const CatalogPushScreen(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.share),
-                            label: const Text('Distribute catalog'),
-                          ),
-                          const SizedBox(height: 8),
-                          // Export the shop's own price/stock listing as a
-                          // signed `.myhanoutlisting` for the shopkeeper.
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const ListingPushScreen(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.sell_outlined),
-                            label: const Text('Export listing'),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ],
               ],
             ),
+    );
+    if (widget.embedded) return body;
+    return Scaffold(
+      appBar: AppBar(title: Text('adminSetup'.tr())),
+      body: body,
     );
   }
 }

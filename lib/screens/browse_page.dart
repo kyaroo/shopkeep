@@ -1,20 +1,41 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/catalog_prefill.dart';
 import '../providers/catalog_provider.dart';
 import '../theme.dart';
+import '../utils/shop_l10n.dart';
 import 'capture_dialog.dart';
 
 /// Browse + search the server catalog (the OFF-derived Moroccan namespace).
 /// Read-only over the network; tapping a row opens the capture form prefilled
 /// so the owner can author/edit it as an owner override. Degrades gracefully
 /// when the server is unreachable (shows an error, no crash).
+///
+/// When [canManage] is true (founder/admin signer) rows become editable and
+/// deletable; otherwise the list is strictly read-only.
 class BrowsePage extends StatefulWidget {
   final bool localOnly;
   final void Function(CatalogPrefill)? onSelect;
-  const BrowsePage({super.key, this.localOnly = false, this.onSelect});
+
+  /// When true, render only the search + paged list column with no own
+  /// [Scaffold]/[AppBar], so it can be hosted inside another screen (the
+  /// admin Catalog tab). Paging / debounce logic is unchanged.
+  final bool embedded;
+
+  /// Founder/admin gate for the folded-in add/edit/delete affordances. The
+  /// host still owns the add/scan action; this only controls row editing.
+  final bool canManage;
+
+  const BrowsePage({
+    super.key,
+    this.localOnly = false,
+    this.onSelect,
+    this.embedded = false,
+    this.canManage = false,
+  });
 
   @override
   State<BrowsePage> createState() => _BrowsePageState();
@@ -119,21 +140,53 @@ class _BrowsePageState extends State<BrowsePage> {
       if (mounted) Navigator.of(context).pop(p);
       return;
     }
+    // Salesman / no signer: the catalog list is strictly read-only.
+    if (!widget.canManage) return;
+    final provider = context.read<CatalogProvider>();
+    final existing = await provider.get(p.barcode);
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (_) => CaptureDialog(
         barcode: p.barcode,
-        prefill: p,
+        existing: existing,
+        prefill: existing == null ? p : null,
       ),
     );
+    if (mounted) await _load(reset: true);
+  }
+
+  Future<void> _deleteProduct(CatalogPrefill p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(shopInfoTr(context, 'catalogDeleteRowTitle')),
+        content: Text(shopInfoTr(context, 'catalogDeleteRowBody',
+            namedArgs: {'name': p.name})),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('cancel'.tr()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'delete'.tr(),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await context.read<CatalogProvider>().delete(p.barcode);
+    if (mounted) await _load(reset: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Browse catalog')),
-      body: Column(
-        children: [
+    final body = Column(
+      children: [
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -205,18 +258,36 @@ class _BrowsePageState extends State<BrowsePage> {
                                     if (cat != null && cat.isNotEmpty) cat,
                                     if (isOwner) 'yours',
                                   ].join('  •  ')),
-                                  trailing: isOwner
-                                      ? Icon(Icons.check_circle,
-                                          size: 18, color: Theme.of(context).extension<AppColors>()!.success)
-                                      : null,
+                                  trailing: widget.canManage
+                                      ? IconButton(
+                                          icon: Icon(Icons.delete_outline,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error),
+                                          tooltip: 'delete'.tr(),
+                                          onPressed: () => _deleteProduct(p),
+                                        )
+                                      : isOwner
+                                          ? Icon(Icons.check_circle,
+                                              size: 18,
+                                              color: Theme.of(context)
+                                                  .extension<AppColors>()!
+                                                  .success)
+                                          : null,
                                   onTap: () => _openProduct(p),
                                 );
                               },
                             ),
                           ),
           ),
-        ],
-      ),
+      ],
+    );
+    // Embedded in a host screen: no nested Scaffold / duplicate AppBar; the
+    // host owns the surrounding shell and simply sizes this column.
+    if (widget.embedded) return body;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Browse catalog')),
+      body: body,
     );
   }
 }

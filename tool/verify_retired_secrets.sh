@@ -43,12 +43,26 @@ for apk in build/app/outputs/flutter-apk/*.apk; do
     "$(grep -aoc "$TOKEN" "$apk" || true)"
 done
 
+echo
+echo "== 3b. release kits =="
+for apk in release/kits/*/*.apk; do
+  [ -e "$apk" ] || continue
+  printf '%-44s hmac=%s token=%s\n' "${apk#release/kits/}" \
+    "$(grep -aoc "$HMAC" "$apk" || true)" \
+    "$(grep -aoc "$TOKEN" "$apk" || true)"
+done
+
 SHOP=$(ls build/app/outputs/flutter-apk/app-shopkeeper-release.apk 2>/dev/null || true)
-if [ -n "$SHOP" ]; then
+KITSHOP=$(ls release/kits/*/myhanout-shopkeeper-*.apk 2>/dev/null | tail -n1 || true)
+if [ -n "$SHOP" ] || [ -n "$KITSHOP" ]; then
   echo
   echo "== 4. shopkeeper release APK: forbidden hosts =="
-  for needle in openfoodfacts.org upcitemdb mymemory catalog.myhanout.ma; do
-    printf '%-24s hits: %s\n' "$needle" "$(grep -aoc "$needle" "$SHOP" || true)"
+  for target in "$SHOP" "$KITSHOP"; do
+    [ -e "$target" ] || continue
+    echo "-- $target"
+    for needle in openfoodfacts.org upcitemdb mymemory catalog.myhanout.ma; do
+      printf '  %-24s hits: %s\n' "$needle" "$(grep -aoc "$needle" "$target" || true)"
+    done
   done
 else
   echo

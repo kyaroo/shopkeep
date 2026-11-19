@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
 import 'app_router.dart';
+import 'admin_home_app.dart';
 import 'providers/cart_provider.dart';
 import 'providers/catalog_provider.dart';
 import 'providers/sales_provider.dart';
@@ -11,7 +12,6 @@ import 'data/myhanout_file.dart';
 import 'data/catalog_db.dart';
 import 'data/settings_service.dart';
 import 'models/catalog_entry.dart';
-import 'screens/admin_setup_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/sales_history_screen.dart';
@@ -56,22 +56,12 @@ void main() async {
     return;
   }
 
-  final shopList = await settings.getShopList();
-  if (shopList.isEmpty) {
-    runApp(const AdminSetupApp(settings: settings));
-    return;
-  }
-  // If a shop was left active, open it.
-  final active = await settings.getCurrentShopKey();
-  if (active.isNotEmpty) {
-    final businessName = await settings.getBusinessName();
-    appState.shopKey = active;
-    appState.businessName = businessName;
-    runApp(AppRouter(appState: appState, settings: settings));
-    return;
-  }
-  // Otherwise → first-run onboarding.
-  runApp(const AdminSetupApp(settings: settings));
+  // Admin ALWAYS opens the non-blocking shell, even when a shop is active.
+  // Creating a shop must never switch the admin into the POS app; keeping the
+  // active shop in storage is fine, but AppRouter ignores it for kIsAdmin.
+  appState.shopKey = '';
+  appState.businessName = 'Maison du Marché';
+  runApp(AppRouter(appState: appState, settings: settings));
 }
 class MyhanoutApp extends StatelessWidget {
     final String shopKey;
@@ -151,45 +141,14 @@ class _ShopEntryLocalizedApp extends StatelessWidget {
   }
 }
 
-/// Admin setup screen: the full app (all tools) in one flavor.
+/// Admin app root — now the non-blocking shell. `AdminSetupScreen` is a
+/// section inside `AdminHome`, never an app root.
 class AdminSetupApp extends StatelessWidget {
   final SettingsService settings;
   const AdminSetupApp({super.key, required this.settings});
 
   @override
-  Widget build(BuildContext context) {
-    return EasyLocalization(
-      supportedLocales: supportedLocales,
-      path: 'assets/lang',
-      fallbackLocale: const Locale('en'),
-      startLocale: const Locale('fr'),
-      useOnlyLangCode: true,
-      saveLocale: true,
-      child: Provider<SettingsService>.value(
-        value: settings,
-        child: const _AdminLocalizedApp(),
-      ),
-    );
-  }
-}
-
-class _AdminLocalizedApp extends StatelessWidget {
-  const _AdminLocalizedApp();
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'myhanoutadmin',
-      localizationsDelegates: context.localizationDelegates,
-      supportedLocales: context.supportedLocales,
-      locale: context.locale,
-      theme: AppPalette.theme(
-        fontFamily: context.locale.languageCode == 'ar' ? 'Tajawal' : 'Inter',
-      ),
-      home: const AdminSetupScreen(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
+  Widget build(BuildContext context) => AdminHomeApp(settings: settings);
 }
 
 class LocalizedApp extends StatelessWidget {

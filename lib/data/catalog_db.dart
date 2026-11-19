@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'catalog_delta.dart';
 import 'catalog_seed_loader.dart';
 import '../models/catalog_entry.dart';
 
@@ -9,7 +10,11 @@ import '../models/catalog_entry.dart';
 /// it, so a remote implementation is a drop-in replacement for this class.
 /// A `pending_deletes` table records tombstones so a delete reaches the server
 /// on the next manual sync (Option B), even though the row is gone locally.
-class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
+class CatalogDb
+    implements
+        CatalogRepository,
+        CatalogDeltaRepository,
+        TransactionalCatalogRepository {
   CatalogDb._();
   static final CatalogDb instance = CatalogDb._();
 
@@ -150,6 +155,53 @@ class CatalogDb implements CatalogRepository, CatalogDeltaRepository {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  /// Applies a whole delta (possibly many generations) in ONE transaction:
+  /// every upsert and delete commits together, or the transaction rolls back.
+  ///
+  /// Mirrors [CatalogDelta.apply]'s merge rules: an upsert without a photo
+  /// keeps the installed photo, and `created_at` is preserved for a row that
+  /// already exists.
+  @override
+  Future<void> applyDeltaAtomic({
+    required List<CatalogEntry> upserts,
+    required List<String> deletes,
+  }) async {
+    final db = await _database;
+    await db.transaction((txn) async {
+      for (final e in upserts) {
+        final rows = await txn.query('products',
+            where: 'barcode = ?', whereArgs: [e.barcode]);
+        final existing =
+            rows.isEmpty ? null : CatalogEntry.fromMap(rows.first);
+        await txn.insert(
+          'products',
+          CatalogEntry(
+            barcode: e.barcode,
+            name: e.name,
+            nameAr: e.nameAr,
+            nameEn: e.nameEn,
+            category: e.category,
+            photo: e.photo ?? existing?.photo,
+            createdAt: existing?.createdAt ?? e.createdAt,
+            updatedAt: e.updatedAt,
+          ).toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final barcode in deletes) {
+        await txn.delete('products', where: 'barcode = ?', whereArgs: [barcode]);
+        await txn.insert(
+          'pending_deletes',
+          {
+            'barcode': barcode,
+            'deleted_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 
   /// Entries changed since [sinceMs] (exclusive) — the sync delta.

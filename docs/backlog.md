@@ -1,6 +1,6 @@
 # myhanout — Backlog & done-log
 
-Reconciled **2026-11-15** against real `git` / `flutter` / `curl` output.
+Reconciled **2026-11-19** against real `git` / `flutter` / `curl` output.
 This file is the single source of truth; `backlog-CAT9.md` and
 `next-session-plan.md` are superseded (kept for history only).
 Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
@@ -29,14 +29,14 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   of truth; the shopkeeper keeps a local copy.
 
 ## Mainline (verified)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` pushed to
-  `github.com:kyaroo/shopkeep.git`, 0 ahead.
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` (b6 phase uncommitted;
+  nothing pushed).
   - `flutter analyze` → **No issues found!**
-  - `flutter test` → **187/187** (device GUI hardening close-out)
-  - Release APKs 2026-11-17 (15:52/15:57): shopkeeper sha256 `7d6106b6…`, admin
-    `bb10f725…`, both signed SHA-256 `67c4aaeb…a690` (`apksigner`),
-    retired-secret grep 0 hits everywhere **— these predate the device fixes
-    below; see REL-2**
+  - `flutter test` → **234/234**
+  - Latest kit **b6** (2026-11-19, versionCode 6): admin + shopkeeper, both
+    signed SHA-256 `67c4aaeb…a690`; `tool/verify_release_bundle.sh` PASS;
+    retired-secret grep 0 hits (release kits are now scanned too).
+  - Older APKs 2026-11-17 (15:52/15:57) predate the device fixes — see REL-2.
   - `flutter build apk --target-platform android-arm64 --flavor admin --debug` OK
   - Gates: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
@@ -94,6 +94,26 @@ arg-check bug (the tool could never run); `tool/pick_catalog_sample.py`.
 **Device state:** shop `hanouti`, catalog → 2, 22 products (20 with real
 photos), applied over `content://` from signed artifacts.
 
+## Done — b6 phase (2026-11-18/19)
+- **Catalog version model**: global monotone generation on the server
+  (`catalog_state`, `catalog_changes`), owner-only `/v1/catalog/version` + paged
+  `/v1/catalog/diff`; admin pull (`catalog_pull_service.dart`) and publish
+  (`catalog_publish_service.dart`) with a version-confirmation dialog;
+  multi-generation deltas (base M → target N) applied atomically.
+- **Admin IA/routing**: tab shell (Catalog/Shops/Security/Settings); per-shop
+  menu; not-registered card; catalog add/edit/delete folded into the Catalog tab
+  and gated by the active founder/admin signer; export listing moved to Shops.
+- **Signer import**: QR import verified against the root-signed directory; role
+  re-read on resume; signer pill in the app bar.
+- **Settings**: the Settings tab hosts the settings page (no second tap); admin
+  backup hides listing/history (shopkeeper-only) with a note.
+- **Server**: shop-info columns + GET/PATCH + paged `/v1/shops/search`; salesman
+  token; the signers directory is held server-side (fail-closed Ed25519 verify).
+- **Deploy**: prod + test on `docker compose`, hardened (read-only, cap-drop,
+  no-new-privileges, restart unless-stopped); `cryptography` added.
+- **Kits**: b5 and b6 built; b6 deployed (x64 admin on the emulator, arm64
+  shopkeeper staged to the phone).
+
 ## Open — app
 | ID | Item | Est. | State |
 |---|---|---|---|
@@ -105,29 +125,50 @@ photos), applied over `content://` from signed artifacts.
 | **Attr** | Attribution UI | ✅ 1h (S) | Settings timeline merging `signer_log` + `audit_log`, newest first |
 | **B7** | **Admin listing export UI** — the delivery loop is half-wired | ✅ 2 h (M) | done 2026-11-17 — `ListingPushScreen` (shop picker → signer → signed bundle → share); the admin can now produce a `.myhanoutlisting` |
 | **REL-1** | Rebuild both release APKs, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-17** — `app-shopkeeper-release.apk` sha256 `7d6106b6…` (15:52), `app-admin-release.apk` `bb10f725…` (15:57); grep 0 hits everywhere; both `apksigner`-verified SHA-256 `67c4aaeb…a690` |
-| **BUILD-1** | The admin release build intermittently fails (exit 1, ~10 min in) | 30 min (S) | **not reproduced** — 3/3 admin-only builds succeeded on 2026-11-17. Both earlier failures happened when admin ran *immediately after* shopkeeper in the same invocation, which is the remaining hypothesis. Workaround until proven: build the two flavors in separate invocations |
+| **BUILD-1** | The admin release build intermittently fails (exit 1, ~10 min in) | ✅ 30 min (S) | **mitigated 2026-11-19** — never reproduced; `tool/build_release_bundle.sh` builds the flavors **sequentially** and b6 built clean. Remaining hypothesis: two Gradle builds overlapping (daemon crash). Keep the separate-invocation workaround if it recurs |
 | **OPS-1** | Back up the signer private seeds off the build host | ✅ 15 min (S) | **done 2026-11-17** — seeds (351 B) and keystore (4.4 KB) copied to the Windows Desktop beside the password; all three hash-verifiable |
 | **TEST-1** | `inventory_refresh_poc_test` leaks rows in shop `s5-shop` | ✅ 30 min (S) | **done 2026-11-17** — added a `tearDown` mirroring `setUp`; verified the DB file is gone after the run |
 | **C2** | Device-verify `content://` end to end | ✅ 1 h (S) | **done 2026-11-17** — on a **release** x64 build over `content://media/external/downloads/…`: `listing applied: 2 new, 0 changed, 0 identical (shop hanouti)`, and the tampered bundle → `listing rejected: bad-signature`. Needed a release-side outcome log because a release build cannot be inspected with `run-as` |
-| **REL-2** | Rebuild both release APKs after the device fixes, then re-run the retired-secret grep | 1 h (S) | **open** — the signed artifacts from 15:52/15:57 predate FIX-1…FIX-4. Build the flavors **in separate invocations** (see BUILD-1), then `tool/verify_retired_secrets.sh` and `apksigner verify --print-certs` on the **artifacts** |
+| **REL-2** | Rebuild both release APKs after the device fixes, then re-run the retired-secret grep | ✅ 1 h (S) | **done 2026-11-19** — b6 kit (versionCode 6) built after FIX-1…FIX-4; `tool/verify_release_bundle.sh` PASS (integrity, pinned cert, packages); `tool/verify_retired_secrets.sh` extended to scan `release/kits/*/*.apk` → 0 hits for b2…b6; shopkeeper kit forbidden-hosts grep 0 |
 | **GUI-1** | Sale retry on device + clean up the orphan sales | 30 min (S) | **open, needs the user** — the deadlock fix is installed; the user clicks Caisse → add → Valider la vente. The two hung attempts each committed a sale row with **no stock deduction** (insertSale commits first); either ignore them in Historique or wipe `hanouti` and re-provision the 20 items |
 | **I18N-1** | Arabic `stockQty` wording | ✅ 5 min (S) | **done 2026-11-17** — `الكمية في المخزون` → `مخزون`; forced by the 199 px subtitle budget. **Flagged to the user**: they may prefer the original wording and accept a tighter Arabic line |
-| **TEST-2** | Device GUI smoke pass on a **release** build — make it a release gate | ✅ 1 h (S), recurring | **open** — the suite cannot catch device-only defects: FIX-1 (sale deadlock; `sqflite_common_ffi` does not queue like the Android plugin) and FIX-3/FIX-4 (layout) all shipped green at 182/182. Script: cold-launch → apply a signed listing + delta over `content://` → validate a sale (logcat `sale completed: …`) → Inventaire in fr/en/ar → Paramètres → Sauvegarde shows **2** exports on the shopkeeper flavor and **3** on admin. Needs the user to click; the outcome is read from logcat |
+| **TEST-2** | Device GUI smoke pass on a **release** build — make it a release gate | ✅ 1 h (S), recurring | **open** — the suite cannot catch device-only defects: FIX-1 (sale deadlock; `sqflite_common_ffi` does not queue like the Android plugin) and FIX-3/FIX-4 (layout) all shipped green at 182/182. Script: cold-launch → apply a signed listing + delta over `content://` → validate a sale (logcat `sale completed: …`) → Inventaire in fr/en/ar → Paramètres → Sauvegarde: shopkeeper = listing + history (+ restore); admin = catalog export (+ restore) + the « Listing and history exports live on the shopkeeper app. » note (change 4a). Needs the user to click; the outcome is read from logcat |
 | **EXP-1** | Separate listing / history / catalog exports; catalog admin-only | ✅ 2 h (M) | **done 2026-11-17** — `ShopExportService` emits three distinctly-named JSON artifacts with **no photos** (`myhanout-listing-v1`, `myhanout-history-v1`, `myhanout-catalog-v1`). The old button was doubly wrong: it sat **outside** the `if (kIsAdmin)` spread (so the shopkeeper could reach a catalog share) *and* it wrote a hard-coded **empty** `Catalog` while discarding the real snapshot. Guard: `tool/verify_catalog_export_gate.sh` (a compile-time `kIsAdmin` cannot be flipped by a test), proven to fail when the guard is removed |
+| **GUI-2** | GUI test session (b5 kit) | — | **superseded 2026-11-19** — the b5 script tests the three-dot menu, which the routing decision removed, and the b5 kit is arm64-only. Replaced by GUI-3; kept for history (`docs/gui-test-session-2026-11-18.md`). |
+| **GUI-3** | GUI test session for the **b6** IA — admin/founder on emulator + shopkeeper on physical device | ~1 h (S), needs the user | **open** — script to be written (base: `docs/gui-test-session-2026-11-18.md`). Covers: tab shell (Catalog/Shops/Security/Settings), Settings tab **is** the settings page (2a), signer pill contrast, per-shop menu, not-registered card, catalog publish/pull with version confirmation, catalog add/edit/delete gated by signer role, shopkeeper flavor gate (no Shop info). Emulator needs an x64 admin build (`--dart-define=ADMIN=true`); physical device needs the b6 arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision; user observes and records text |
 
 ## Open — server
 | ID | Item | Est. | State |
 |---|---|---|---|
-| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | ✅ 1 h (S) | **done 2026-11-17** — `hamidyougo` round-tripped 2 → 3 (POST 200, GET confirmed). Token read from the container's `CATALOG_TOKEN` into an env var, never printed. Note: `hanouti` does not exist on the server; the real shops are `h` and `hamidyougo` |
+| **A3** | Prod round-trip verification of `catalog_version` (BUG B closure) | ✅ 1 h (S) | **done 2026-11-17** — `hamidyougo` round-tripped 2 → 3 (POST 200, GET confirmed). Token read from the container's `CATALOG_TOKEN` into an env var, never printed. (`h` was since deleted; the live shops are `hamidyougo` and `hanoutihamid`.) |
+| **SRV-1** | Signer-directory rotation runbook (founder, offline) | 1 h (S) | **open** — the server verifies the roster at startup; document the rotation: build a new root-signed envelope (`tool/make_signers_qr.dart`) → ship to `server/signers.json` → restart → rebuild the APK / show the QR. Root key held offline by the founder |
+| **SRV-2** | Server serves the directory (owner-only `GET`) so devices can pull | 2 h (M) | **open, "later"** — devices currently get the roster from the APK asset or QR import; a pull endpoint would close the "only on device" gap |
+| **SRV-3** | Prod `CATALOG_PUBLIC_URL` is the loopback default | 15 min (S) | **open** — only surfaced by `GET /v1/admin/catalog-open`; set to `https://catalog.myhanout.ma` if that field is ever user-facing |
 
-## Parked (not now — decision 2026-11-15)
+## Parked (not now — decisions 2026-11-15 / 2026-11-19)
 - **C2** photo capture in the *shopkeeper* product form (already in the admin
   catalog UI via `CaptureDialog`).
 - **C** POS features: E1 clôture de caisse (16 h) · D1–D4 prix conseillé (10 h) ·
   E2 ticket + imprimante (20 h) · E3 backup auto (12 h) · G1 conflits (8 h).
 - **F1/F2** per-ABI / release build matrix.
+- **5(ii)** signer-key-minted short-lived sync token (challenge-response) —
+  decided 2026-11-19 to keep the token **manual** for now. The server-side
+  signers directory (Done, b6 phase) is the prerequisite, so this is ready to
+  pick up when distributing the manual token becomes a pain.
 
 ## Resolved questions
+- **Signer directory (2026-11-19):** the server holds a static copy of the
+  root-signed roster, rotated manually by the founder (offline), verified at
+  startup (fail-closed). The sync token stays a **manual** shared secret; the
+  signer-key-minted token (5(ii)) is parked. Serving the roster to devices
+  (pull) is "later".
+- **iOS: dropped (2026-11-19).** Android-only. Flutter could build an iOS app,
+  but the project has no `ios/` target, the `.myhanout` import and flavors are
+  Android-native, an iOS build needs macOS/Xcode + an Apple Developer account,
+  and iOS forbids APK-style P2P installs (App Store / TestFlight / Ad-hoc /
+  Enterprise only). Most shopkeepers are on Android; the cost and signature
+  burden are not worth it. The human-to-human catalog-file delivery stays an
+  Android (and web/WhatsApp) channel.
 - Version scheme: **monotone counter**, not epoch ms.
 - Delivery: **manual `.myhanout`**, not HTTP — offline lock.
 - One shop per push; screen named « Distribution du catalogue » (no network).
@@ -143,7 +184,8 @@ photos), applied over `content://` from signed artifacts.
 - Shopkeeper must have zero network code outside `kIsAdmin`.
 - `assets/catalog_seed.db` is 60 MB — above the 50 MB recommendation.
 - `SyncConfig.defaultClient()` is still called directly in
-  `admin_setup_screen` (shop deletion) — last locator of its kind.
+  `admin_setup_screen` (shop deletion); the other screens/services take an
+  injected `clientFactory`. Make the shop-deletion path injectable too.
 - **The shopkeeper flavor must make zero HTTP requests.** Proven by
   `HttpOverrides` in `security_regression_test.dart` and by the release-APK
   grep. Both must stay green.
