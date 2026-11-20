@@ -12,7 +12,9 @@
 #      may be reachable from the admin Settings tab;
 #   2. the AdminHome AppBar has no three-dot menu — the per-shop menu belongs
 #      to the Shops tab list;
-#   3. the admin landing tab is Shops, and there are exactly three tabs.
+#   3. the admin landing tab is Shops, and there are exactly three tabs;
+#   4. the admin POS detour is opt-in (AppState.posMode) and session-only, with
+#      the shell as the default and an explicit « Back to admin » in the POS.
 #
 # Run: bash tool/verify_flavor_gates.sh
 set -euo pipefail
@@ -115,5 +117,33 @@ if ! grep -qE 'int _tab = 0;' "$home"; then
   exit 1
 fi
 echo "ok: $home starts on the Shops tab"
+
+echo "-- Admin router: the POS detour is opt-in and session-only --"
+router=lib/app_router.dart
+[ -f "$router" ] || { echo "FAIL: $router not found"; exit 1; }
+if ! grep -q 'state\.posMode' "$router"; then
+  echo "FAIL: $router no longer gates the POS on AppState.posMode"
+  exit 1
+fi
+if ! grep -q 'AdminHomeApp(settings: settings)' "$router"; then
+  echo "FAIL: $router no longer falls back to the admin shell"
+  exit 1
+fi
+awk '
+  /state\.posMode/ { p = NR }
+  /AdminHomeApp\(settings: settings\)/ { a = NR }
+  END {
+    if (p == 0 || a == 0 || a < p) {
+      print "FAIL: posMode must guard the POS branch, with the shell as the default"
+      exit 1
+    }
+  }
+' "$router"
+echo "ok: the POS is behind posMode; the admin shell is the default"
+if ! grep -q 'backToAdmin' lib/main.dart; then
+  echo "FAIL: lib/main.dart has no « Back to admin » action in the POS app bar"
+  exit 1
+fi
+echo "ok: the POS has a « Back to admin » action"
 
 echo "PASS: the admin Settings / AdminHome flavor gates are intact"

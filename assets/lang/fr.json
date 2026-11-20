@@ -87,6 +87,7 @@
   "listingPushBuilt": "Liste générée : {count} produit(s), {size} Ko ({key})",
   "listingPushFailed": "Échec : {error}",
   "joinShop": "Rejoindre la boutique",
+  "backToAdmin": "Retour à l’admin",
   "addShop": "Ajouter une boutique",
   "businessName": "Nom de l'activité",
   "shopKey": "Clé boutique",

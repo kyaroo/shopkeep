@@ -11,6 +11,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myhanout/admin_home_app.dart';
+import 'package:myhanout/app_state.dart';
 import 'package:myhanout/data/catalog_delta.dart';
 import 'package:myhanout/data/catalog_sync_client.dart';
 import 'package:myhanout/data/settings_service.dart';
@@ -168,6 +169,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final navKey = GlobalKey<NavigatorState>();
+    final appState = AppState();
     final pullClient = _FakePullClient(
       [
         CatalogDiffChange(
@@ -197,6 +199,9 @@ void main() {
           builder: (context) => MultiProvider(
             providers: [
               Provider<SettingsService>.value(value: settings),
+              // Production provides this above AdminHomeApp (AppRouter); the
+              // per-shop « Open shop » action reads it.
+              ChangeNotifierProvider<AppState>.value(value: appState),
               ChangeNotifierProvider(
                 create: (_) => CatalogProvider(repo: _FakeCatalogRepo()),
               ),
@@ -276,14 +281,21 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_vert));
     await settle(tester, 10);
+    expect(find.text('Open shop'), findsOneWidget);
     expect(find.text('Shop info'), findsOneWidget);
     expect(find.text('Export listing'), findsOneWidget);
     expect(find.text('Export history'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
     expect(find.text('Use this shop'), findsNothing,
         reason: 'it popped the root route and blacked the screen');
-    navKey.currentState!.pop();
-    await settle(tester, 8);
+
+    // « Open shop » records the shop as current and flips the session-only POS
+    // mode; the router (not under test here) swaps the shell for the POS.
+    await tester.tap(find.text('Open shop'));
+    await settle(tester, 10);
+    expect(appState.shopKey, 'hanouti');
+    expect(appState.posMode, isTrue,
+        reason: 'posMode is the opt-in detour; it is not persisted');
 
     // --- No signer: chip + non-blocking banner.
     expect(find.text('No signer'), findsOneWidget);

@@ -56,9 +56,8 @@ void main() async {
     return;
   }
 
-  // Admin ALWAYS opens the non-blocking shell, even when a shop is active.
-  // Creating a shop must never switch the admin into the POS app; keeping the
-  // active shop in storage is fine, but AppRouter ignores it for kIsAdmin.
+  // Admin ALWAYS cold-starts into its non-blocking shell, even if a shop was
+  // left active: the POS detour is opt-in per session (see AppState.posMode).
   appState.shopKey = '';
   appState.businessName = 'Maison du Marché';
   runApp(AppRouter(appState: appState, settings: settings));
@@ -250,6 +249,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text('appName'.tr()),
         actions: [
+          // Admin flavor only: leave the POS detour and return to the shell.
+          if (kIsAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              tooltip: 'backToAdmin'.tr(),
+              onPressed: () => context.read<AppState>().posMode = false,
+            ),
           IconButton(
             icon: const Icon(Icons.language),
             tooltip: 'language'.tr(),

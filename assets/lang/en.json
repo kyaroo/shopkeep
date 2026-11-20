@@ -87,6 +87,7 @@
   "listingPushBuilt": "Listing built: {count} product(s), {size} KB ({key})",
   "listingPushFailed": "Failed: {error}",
   "joinShop": "Join shop",
+  "backToAdmin": "Back to admin",
   "addShop": "Add shop",
   "businessName": "Business name",
   "shopKey": "Shop key",

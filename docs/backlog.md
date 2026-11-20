@@ -29,7 +29,8 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   single shop manager (create with contact fields, per-shop menu, join);
   Catalog owns the universal catalog + the sync card; Settings houses the
   catalog/app versions and the signer material. The POS is the **shopkeeper
-  flavor** on the salesman's phone — the admin flavor never routes into the POS.
+  flavor** on the salesman's phone; the admin flavor opens a shop's POS only as
+  an explicit, session-only detour (Shops tab → per-shop « Open shop »).
 
 ## Mainline (verified 2026-11-20)
 - **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `395127b` (b9 phase +
@@ -139,7 +140,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 |---|---|---|---|
 | **GUI-1** | Sale retry on device + clean up the orphan sales | 30 min (S) | **open, needs the user** — the deadlock fix is installed; the user clicks Caisse → add → « Valider la vente ». The two hung attempts each committed a sale row with **no stock deduction**; either ignore them in Historique or wipe `hanouti` and re-provision the 20 items |
 | **TEST-2** | Device GUI smoke pass on a **release** build — make it a release gate | 1 h (S), recurring | **open** — the suite cannot catch device-only defects (FIX-1, FIX-3, FIX-4 all shipped green). Script: cold-launch → apply a signed listing + delta over `content://` → validate a sale (logcat `sale completed: …`) → Inventaire in fr/en/ar → Paramètres → Sauvegarde. Needs the user to click; outcome read from logcat |
-| **GUI-3** | GUI test session for the **b9** IA | ~1 h (S), needs the user | **open, re-scoped 2026-11-20** — covers the **three tabs** (Shops/Catalog/Settings), the create form with contact fields, the per-shop menu, the icon-only sync card + pill, the shopkeeper flavor gate (no Shop info / no signer surface). Emulator needs an x64 admin build; the physical device needs an arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision |
+| **GUI-3** | GUI test session for the **b9** IA | ~1 h (S), needs the user | **open, re-scoped 2026-11-20** — covers the **three tabs** (Shops/Catalog/Settings), the create form with contact fields, the per-shop menu (now incl. « Open shop » → POS detour + « Back to admin »), the icon-only sync card + pill, the shopkeeper flavor gate (no Shop info / no signer surface). Emulator needs an x64 admin build; the physical device needs an arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision |
 
 ## Open — server
 **None.** SRV-1 and SRV-3 were closed 2026-11-20 — see "Done — cleanup".
@@ -164,8 +165,11 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - **Shop data (2026-11-20):** the four contact fields are collected at creation
   (non-blocking) and editable afterwards; `business_name` is owner-token-only;
   the salesman and the owner may both edit the contact fields.
-- **POS (2026-11-20):** the salesman uses the **shopkeeper flavor** on his phone;
-  the admin flavor does not route into the POS.
+- **POS (2026-11-20):** the salesman uses the **shopkeeper flavor** on his phone.
+  The admin flavor opens a shop's POS only as an opt-in, session-only detour:
+  Shops tab → per-shop « Open shop » records the current shop and flips
+  `AppState.posMode`, the router swaps the shell for the POS, and a kIsAdmin-only
+  « Back to admin » (plus every cold start) returns to the shell.
 - **App version (2026-11-20):** compile-time `--dart-define=APP_VERSION` from
   pubspec; no plugin.
 - **Sync status (2026-11-20):** the pill probes `/v1/catalog/version`

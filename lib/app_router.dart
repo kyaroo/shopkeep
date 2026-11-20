@@ -31,10 +31,20 @@ class AppRouter extends StatelessWidget {
       value: appState,
       child: Consumer<AppState>(
         builder: (context, state, _) {
-          // Admin flavor ALWAYS opens the non-blocking shell, even when a shop
-          // is active. A compile-time const, so this is stripped from the
-          // shopkeeper build (which keeps its existing shop-entry routing).
-          if (kIsAdmin) return AdminHomeApp(settings: settings);
+          // Admin flavor opens its non-blocking shell — except when the founder
+          // explicitly opened one shop's POS from the Shops tab. `posMode` is
+          // in-memory only, so it never survives a cold start.
+          if (kIsAdmin) {
+            if (state.posMode && state.shopKey.isNotEmpty) {
+              return MyhanoutApp(
+                key: ValueKey(state.shopKey),
+                shopKey: state.shopKey,
+                businessName: state.businessName,
+                settings: settings,
+              );
+            }
+            return AdminHomeApp(settings: settings);
+          }
           if (state.shopKey.isEmpty) {
             return ShopEntryApp(settings: settings);
           }

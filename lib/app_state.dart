@@ -10,8 +10,15 @@ class AppState extends ChangeNotifier {
   String _shopKey = 'default';
   String _businessName = 'Maison du Marché';
 
+  /// Admin flavor only: the founder opened a shop's POS from the Shops tab.
+  ///
+  /// Deliberately NOT persisted — a cold start always lands back in the admin
+  /// shell, so the POS is a session detour, not a standing mode.
+  bool _posMode = false;
+
   String get shopKey => _shopKey;
   String get businessName => _businessName;
+  bool get posMode => _posMode;
 
   set shopKey(String v) {
     if (_shopKey == v) return;
@@ -22,6 +29,12 @@ class AppState extends ChangeNotifier {
   set businessName(String v) {
     if (_businessName == v) return;
     _businessName = v;
+    notifyListeners();
+  }
+
+  set posMode(bool v) {
+    if (_posMode == v) return;
+    _posMode = v;
     notifyListeners();
   }
 }

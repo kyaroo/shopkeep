@@ -87,6 +87,7 @@
   "listingPushBuilt": "تم إنشاء القائمة: {count} منتج، {size} ك.ب ({key})",
   "listingPushFailed": "فشل: {error}",
   "joinShop": "انضمام إلى المتجر",
+  "backToAdmin": "العودة إلى الإدارة",
   "addShop": "إضافة متجر",
   "businessName": "اسم النشاط",
   "shopKey": "مِفتاح المتجر",
