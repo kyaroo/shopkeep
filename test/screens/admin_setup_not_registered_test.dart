@@ -24,7 +24,14 @@ class _OkClient extends CatalogSyncClient {
   _OkClient() : super(baseUrl: '', token: '', deviceId: 'test');
 
   @override
-  Future<void> registerShop(String shopKey, String businessName) async {}
+  Future<void> registerShop(
+    String shopKey,
+    String businessName, {
+    String? address,
+    String? city,
+    String? ownerName,
+    String? phone,
+  }) async {}
 
   @override
   void close() {}
@@ -34,7 +41,14 @@ class _FailingClient extends CatalogSyncClient {
   _FailingClient() : super(baseUrl: '', token: '', deviceId: 'test');
 
   @override
-  Future<void> registerShop(String shopKey, String businessName) async {
+  Future<void> registerShop(
+    String shopKey,
+    String businessName, {
+    String? address,
+    String? city,
+    String? ownerName,
+    String? phone,
+  }) async {
     throw SyncException('server unreachable');
   }
 

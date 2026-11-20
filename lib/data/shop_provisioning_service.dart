@@ -35,12 +35,19 @@ class ShopProvisioningService {
 
   /// Creates a shop and returns its outcome.
   ///
+  /// The four contact fields are optional and NON-BLOCKING: an empty value is
+  /// sent as absent, and they never prevent the shop from being created.
+  ///
   /// Throws [DuplicateShopKeyException] if the key already exists. A failed
   /// registration is NOT thrown: the local shop is already created and the
   /// caller reports `registered: false`.
   static Future<ShopCreationResult> createShop({
     required String name,
     String? key,
+    String? address,
+    String? city,
+    String? ownerName,
+    String? phone,
     bool registerOnServer = true,
     SettingsService? settings,
     CatalogSyncClientFactory? clientFactory,
@@ -69,7 +76,14 @@ class ShopProvisioningService {
       if (configured.isConfigured) {
         try {
           final client = await (clientFactory ?? SyncConfig.defaultClient)();
-          await client.registerShop(finalKey, name);
+          await client.registerShop(
+            finalKey,
+            name,
+            address: address,
+            city: city,
+            ownerName: ownerName,
+            phone: phone,
+          );
           client.close();
           registered = true;
         } catch (e) {

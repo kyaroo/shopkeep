@@ -7,8 +7,9 @@ import '../data/sync_config.dart';
 /// Read-only view of a shop as reported by `GET /v1/shops/{key}/info`.
 ///
 /// Provisioner fields are the server's truth about who created the shop; the
-/// app never edits them. Contact fields are the only editable part (see
-/// [ShopInfoPatch]).
+/// app never edits them. [businessName] is editable ONLY for an `owner` token
+/// (the server answers 403 for a salesman); the four contact fields are
+/// editable for both roles. See [ShopInfoPatch].
 class ShopInfo {
   final String shopKey;
   final String businessName;
@@ -53,12 +54,14 @@ class ShopInfo {
 /// Building the request body from this class is what enforces the allowlist:
 /// no provisioning or catalog field can be smuggled into a patch.
 class ShopInfoPatch {
+  final String? businessName;
   final String? address;
   final String? city;
   final String? ownerName;
   final String? phone;
 
   const ShopInfoPatch({
+    this.businessName,
     this.address,
     this.city,
     this.ownerName,
@@ -66,9 +69,14 @@ class ShopInfoPatch {
   });
 
   bool get isEmpty =>
-      address == null && city == null && ownerName == null && phone == null;
+      businessName == null &&
+      address == null &&
+      city == null &&
+      ownerName == null &&
+      phone == null;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+        if (businessName != null) 'business_name': businessName,
         if (address != null) 'address': address,
         if (city != null) 'city': city,
         if (ownerName != null) 'owner_name': ownerName,

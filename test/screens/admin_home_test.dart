@@ -1,5 +1,6 @@
-/// Widget test for the AdminHome shell: signer indicator, Catalog tab button
-/// set, per-shop menu, Catalog management gating and the Settings tab actions.
+/// Widget test for the AdminHome shell: three tabs (Shops / Catalog /
+/// Settings), the Catalog action row, the per-shop menu, role gating and the
+/// Settings tab.
 ///
 /// ONE EasyLocalization/MaterialApp tree for the whole isolate: a second one
 /// leaves the translation load stuck in the fake-async zone, so every phase
@@ -19,6 +20,7 @@ import 'package:myhanout/providers/catalog_provider.dart';
 import 'package:myhanout/screens/admin_home_screen.dart';
 import 'package:myhanout/screens/capture_dialog.dart';
 import 'package:myhanout/screens/settings_screen.dart';
+import 'package:myhanout/screens/sync_settings_dialog.dart';
 import 'package:myhanout/theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,10 +28,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../helpers/fake_settings.dart';
 import '../helpers/signing_trust.dart';
 
-/// Fake diff client for the « Update catalog » action (no network).
+/// Fake sync client for the Catalog actions (no network).
 class _FakePullClient extends CatalogSyncClient {
   final List<CatalogDiffChange> changes;
   final int toVersion;
+
   int diffCalls = 0;
 
   _FakePullClient(this.changes, this.toVersion)
@@ -52,6 +55,9 @@ class _FakePullClient extends CatalogSyncClient {
       changes: changes,
     );
   }
+
+  @override
+  Future<int> catalogVersionStatus() async => 200;
 
   @override
   void close() {}
@@ -153,8 +159,8 @@ void main() {
     settings.shops.add('hanouti');
   });
 
-  testWidgets('AdminHome IA: catalog buttons, per-shop menu, role gating, '
-      'settings actions', (tester) async {
+  testWidgets('AdminHome IA: three tabs, catalog actions, per-shop menu, '
+      'role gating, settings actions', (tester) async {
     // A phone-sized surface: the sync card + list must fit without overflow.
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -219,14 +225,26 @@ void main() {
     );
     await settle(tester);
 
-    // --- Catalog tab: « Sync parameters » on top, then the paged list and the
-    // one global distribute action.
+    // --- Landing tab is Shops; the Security tab is gone.
+    expect(find.text('Shops'), findsOneWidget);
+    expect(find.text('Catalog'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Security'), findsNothing,
+        reason: 'the Security tab was merged into Settings');
+    expect(find.text('Add shop'), findsOneWidget,
+        reason: 'the Shops tab is the single shop manager');
+
+    // --- Catalog tab: « Sync parameters » header + pill, then ONE row of
+    // three icon actions (no ListTiles) and the paged list.
     await tester.tap(find.text('Catalog'));
     await settle(tester);
     expect(find.text('Sync parameters'), findsOneWidget);
-    expect(find.text('Update catalog'), findsOneWidget);
-    expect(find.text('Publish changes'), findsOneWidget);
-    expect(find.text('Sync settings'), findsOneWidget);
+    expect(find.byTooltip('Update catalog'), findsOneWidget);
+    expect(find.byTooltip('Publish changes'), findsOneWidget);
+    expect(find.byTooltip('Sync settings'), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_download), findsOneWidget);
+    expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+    expect(find.byIcon(Icons.sync), findsOneWidget);
     expect(find.text('Token missing'), findsOneWidget,
         reason: 'no token in prefs → the pill reports it');
     expect(find.text('Café Test'), findsOneWidget);
@@ -237,7 +255,16 @@ void main() {
     expect(find.text('Export listing'), findsNothing,
         reason: 'listing export moved to the per-shop menu');
 
-    // --- Shops tab: per-shop menu with Shop info / Export listing / Delete.
+    // « Sync settings » opens the config dialog (and comes back).
+    await tester.tap(find.byTooltip('Sync settings'));
+    await settle(tester, 10);
+    expect(find.byType(SyncSettingsDialog), findsOneWidget);
+    navKey.currentState!.pop();
+    await settle(tester, 10);
+    expect(find.text('Token missing'), findsOneWidget);
+
+    // --- Shops tab: per-shop menu with Shop info / Export listing /
+    // Export history / Delete (and no "Use this shop").
     await tester.tap(find.text('Shops'));
     await settle(tester);
     expect(find.text('Distribute catalog'), findsNothing);
@@ -247,7 +274,10 @@ void main() {
     await settle(tester, 10);
     expect(find.text('Shop info'), findsOneWidget);
     expect(find.text('Export listing'), findsOneWidget);
+    expect(find.text('Export history'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Use this shop'), findsNothing,
+        reason: 'it popped the root route and blacked the screen');
     navKey.currentState!.pop();
     await settle(tester, 8);
 
@@ -297,13 +327,13 @@ void main() {
     expect(find.byType(CaptureDialog), findsNothing,
         reason: 'a salesman cannot edit the catalog');
 
-    // --- Settings tab is the settings body only; the sync actions moved to
+    // --- Settings tab is the settings body only; the sync actions live on
     // the Catalog tab.
     await tester.tap(find.text('Settings'));
     await settle(tester);
-    expect(find.text('Update catalog'), findsNothing);
-    expect(find.text('Publish changes'), findsNothing);
-    expect(find.text('Sync settings'), findsNothing);
+    expect(find.byTooltip('Update catalog'), findsNothing);
+    expect(find.byTooltip('Publish changes'), findsNothing);
+    expect(find.byTooltip('Sync settings'), findsNothing);
     expect(find.byType(SettingsScreen), findsOneWidget,
         reason: 'the settings body is embedded in the tab');
 
@@ -312,7 +342,7 @@ void main() {
     await tester.tap(find.text('Catalog'));
     await settle(tester);
     settings.catalogVersion = 1;
-    await tester.tap(find.text('Update catalog'));
+    await tester.tap(find.byTooltip('Update catalog'));
     await settle(tester, 10);
     expect(find.text('Update catalog?'), findsOneWidget);
     expect(find.textContaining('Local version 1 -> latest 3'), findsOneWidget);

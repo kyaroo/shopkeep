@@ -1,32 +1,30 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
-import '../data/settings_service.dart';
-import '../services/shop_export_service.dart';
-import '../data/shop_provisioning_service.dart';
-import '../data/import_export.dart';
-import '../screens/shop_entry_screen.dart';
-import '../app_state.dart';
-import '../utils/slug.dart';
 import '../build_config.dart';
-import '../services/attribution_service.dart';
+import '../data/import_export.dart';
+import '../data/settings_service.dart';
+import '../data/signers_directory.dart';
+import '../data/signing.dart';
+import '../screens/signer_import_screen.dart';
+import '../services/shop_export_service.dart';
 import '../theme.dart';
 
-/// Plain `yyyy-MM-dd HH:mm` — deliberately locale-independent, so the trail is
-/// unambiguous whatever the app language is (and so `intl` date initialization
-/// is not required on this screen).
-String _formatTimestamp(int epochMs) {
-  if (epochMs <= 0) return '';
-  final d = DateTime.fromMillisecondsSinceEpoch(epochMs);
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-}
-
-/// Settings screen: business name, shop management, export/import.
+/// Settings screen.
+///
+/// Two flavors, one file — the compile-time [kIsAdmin] decides the body:
+///
+///  * **admin** (embedded in the AdminHome Settings tab): the installed catalog
+///    generation, the app build version, and the signer material (directory +
+///    import). No business-name or shop-provisioning surface lives here any
+///    more: creating / joining a shop moved to the Shops tab, and the business
+///    name is edited per shop on the shop-info screen.
+///  * **shopkeeper**: the stored business name (read-only — it was recorded by
+///    the salesman in the signed QR) and the shop-bound exports. The catalog
+///    export stays admin-only.
 class SettingsScreen extends StatefulWidget {
   final String shopKey;
 
@@ -34,7 +32,16 @@ class SettingsScreen extends StatefulWidget {
   /// admin Settings tab can host it directly.
   final bool embedded;
 
-  const SettingsScreen({super.key, required this.shopKey, this.embedded = false});
+  /// Trust root for the signers directory / pushed import screen. Production
+  /// leaves this null (baked root); tests inject a throwaway root.
+  final List<int>? rootPublicKey;
+
+  const SettingsScreen({
+    super.key,
+    required this.shopKey,
+    this.embedded = false,
+    this.rootPublicKey,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -43,32 +50,17 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   SettingsService get _settings => context.read<SettingsService>();
 
-  late TextEditingController _nameController;
-  final _shopNameController = TextEditingController();
-  final _shopKeyController = TextEditingController();
+  late final TextEditingController _nameController;
 
-  List<String> _shopKeys = [];
-  String _currentShopKey = '';
-  bool _loadingShops = true;
+  /// Bumped when the signer import returns so the directory / active-signer
+  /// rows re-run their futures.
+  int _refresh = 0;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController();
     _loadBusinessName();
-    _loadShops();
-    String lastAutoKey = '';
-    _shopKeyController.addListener(() {});
-    _shopNameController.addListener(() {
-      final auto = slugify(_shopNameController.text);
-      if (_shopKeyController.text.isEmpty || _shopKeyController.text == lastAutoKey) {
-        _shopKeyController.text = auto;
-        lastAutoKey = auto;
-      }
-    });
-    _shopKeyController.addListener(() {
-      if (_shopKeyController.text != lastAutoKey) lastAutoKey = '';
-    });
   }
 
   Future<void> _loadBusinessName() async {
@@ -76,112 +68,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) _nameController.text = name;
   }
 
-  Future<void> _loadShops() async {
-    final list = await _settings.getShopList();
-    final current = await _settings.getCurrentShopKey();
-    if (mounted) {
-      setState(() {
-        _shopKeys = list;
-        _currentShopKey = current;
-        _loadingShops = false;
-      });
-    }
-  }
-
-  Future<void> _saveBusinessName() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-    await _settings.saveBusinessName(name);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('businessNameSaved'.tr())),
-      );
-    }
-  }
-
-  Future<void> _addShop() async {
-    final name = _shopNameController.text.trim();
-    if (name.isEmpty) return;
-    final keyInput = _shopKeyController.text.trim();
-    try {
-      await ShopProvisioningService.createShop(
-        name: name,
-        key: keyInput.isEmpty ? null : keyInput,
-        registerOnServer: false,
-        settings: _settings,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('shopCreated'.tr())),
-        );
-        _shopNameController.clear();
-        _shopKeyController.clear();
-        _loadShops();
-      }
-    } catch (e) {
-      if (mounted) {
-        final msg = e is DuplicateShopKeyException
-            ? 'shopKeyDuplicate'.tr()
-            : 'shopKeyRequired'.tr();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
-      }
-    }
-  }
-
-  Future<void> _useShop(String key) async {
-    final appState = context.read<AppState>();
-    await _settings.setCurrentShopKey(key);
-    final name = await _settings.getBusinessName();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('shopSelected'.tr(namedArgs: {'key': key}))),
-      );
-      Navigator.of(context).pop();
-    }
-    appState.shopKey = key;
-    appState.businessName = name;
-  }
-
-  Future<void> _confirmDeleteShop(String key) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('deleteShop'.tr()),
-        content: Text('deleteShopConfirm'.tr(namedArgs: {'key': key})),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        ],
+  Future<void> _importSignerKey() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SignerImportScreen(rootPublicKey: widget.rootPublicKey),
       ),
     );
-    if (ok != true) return;
-    await _settings.removeShop(key);
-    if (mounted) {
-      _loadShops();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('shopDeleted'.tr())),
-      );
-    }
+    if (mounted) setState(() => _refresh++);
   }
 
   /// Writes [json] to a temp file and hands it to the system share sheet.
-  ///
-  /// One path for all three exports: the old code built the JSON, then wrote a
-  /// hard-coded *empty* [Catalog] to the file and shared that, so the real
-  /// payload was discarded and the `Share.share(json)` fallback was
-  /// unreachable (`writeCatalog` always creates the file).
+  /// IO / share failures surface as the standard export-failed snackbar.
   Future<void> _shareJson(String format, String shopKey, String json) async {
     try {
-      final temp = Directory.systemTemp.createTempSync('myhanout_');
-      final name = ShopExportService.fileName(format, shopKey);
-      final file = File('${temp.path}/$name');
-      await file.writeAsString(json);
-      await Share.shareXFiles([XFile(file.path)], subject: name);
+      await ShopExportService.shareJson(format, shopKey, json);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('exported'.tr())),
@@ -196,43 +96,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Shop-bound data has no meaning on a fresh admin install (no shop yet).
-  /// Show an explicit state instead of opening an empty shop DB.
-  void _noShop() {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No shop selected — choose a shop first')),
-    );
-  }
-
-  /// The shop's own price/stock listing. Available in both flavors.
-  Future<void> _exportListing() async {
-    if (widget.shopKey.isEmpty) {
-      _noShop();
-      return;
-    }
-    await _shareJson(
-      ShopExportService.listingFormat,
-      widget.shopKey,
-      await ShopExportService.listingJson(widget.shopKey),
-    );
-  }
-
-  /// The shop's own sales history. Available in both flavors.
-  Future<void> _exportHistory() async {
-    if (widget.shopKey.isEmpty) {
-      _noShop();
-      return;
-    }
-    await _shareJson(
-      ShopExportService.historyFormat,
-      widget.shopKey,
-      await ShopExportService.historyJson(widget.shopKey),
-    );
-  }
-
-  /// The universal catalog. **Admin only** — see the `kIsAdmin` guard on the
-  /// menu entry. Metadata only, never photos.
+  /// The universal catalog. **Admin only** — the catalog is the admin's
+  /// artifact, never the shopkeeper's. Metadata only, never photos.
   Future<void> _exportCatalog() async {
     await _shareJson(
       ShopExportService.catalogFormat,
@@ -270,11 +135,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Shop-bound data has no meaning on a fresh admin install (no shop yet).
+  /// Show an explicit state instead of opening an empty shop DB.
+  void _noShop() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No shop selected — choose a shop first')),
+    );
+  }
+
+  /// The shop's own price/stock listing. Shopkeeper flavor only.
+  Future<void> _exportListing() async {
+    if (widget.shopKey.isEmpty) {
+      _noShop();
+      return;
+    }
+    await _shareJson(
+      ShopExportService.listingFormat,
+      widget.shopKey,
+      await ShopExportService.listingJson(widget.shopKey),
+    );
+  }
+
+  /// The shop's own sales history. Shopkeeper flavor only.
+  Future<void> _exportHistory() async {
+    if (widget.shopKey.isEmpty) {
+      _noShop();
+      return;
+    }
+    await _shareJson(
+      ShopExportService.historyFormat,
+      widget.shopKey,
+      await ShopExportService.historyJson(widget.shopKey),
+    );
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
-    _shopNameController.dispose();
-    _shopKeyController.dispose();
     super.dispose();
   }
 
@@ -283,262 +181,267 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
-          // Installed catalog generation. Read-only, no network: the value
-          // advances when a `.myhanout` delta is applied on this device.
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Icon(Icons.inventory_2_outlined),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text('catalogVersionLabel'.tr(),
-                        style: Theme.of(context).textTheme.bodyMedium),
-                  ),
-                  FutureBuilder<int>(
-                    future: _settings.getCatalogVersion(),
-                    builder: (context, snap) => Text(
-                      '${snap.data ?? 0}',
-                      style: Theme.of(context)
-                          .extension<AppTextStyles>()!
-                          .name(context),
+        // Installed catalog generation. Read-only, no network: the value
+        // advances when a `.myhanout` delta is applied on this device.
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.inventory_2_outlined),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('catalogVersionLabel'.tr(),
+                          style: Theme.of(context).textTheme.bodyMedium),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Attribution: who pushed which catalog generation, and who changed a
-          // price or stock level. Read-only, from local tables.
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('attribution'.tr(),
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  if (widget.shopKey.isEmpty)
-                    const Text('No shop selected')
-                  else
-                    FutureBuilder<List<AttributionEntry>>(
-                      future: AttributionService.recent(shopKey: widget.shopKey),
-                    builder: (context, snap) {
-                      if (!snap.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final entries = snap.data!;
-                      if (entries.isEmpty) {
-                        return Text('attributionEmpty'.tr());
-                      }
-                      return Column(
-                        children: [
-                          for (final e in entries)
-                            ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                e.kind == 'catalog'
-                                    ? Icons.inventory_2_outlined
-                                    : Icons.sell_outlined,
-                              ),
-                              title: Text(e.actor.isEmpty
-                                  ? 'attributionUnknown'.tr()
-                                  : e.actor),
-                              subtitle: Text(
-                                '${e.kind == 'catalog' ? 'attributionCatalog'.tr() : 'attributionListing'.tr()} · ${e.detail}',
-                              ),
-                              trailing: Text(_formatTimestamp(e.at)),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('businessName'.tr(),
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  // Provisioning data: on the shopkeeper flavor the name was
-                  // recorded by the salesman in the signed QR, so there is no
-                  // editing affordance at all — only the stored value. The
-                  // branch is compile-time, so the editing widgets are stripped
-                  // from the shopkeeper build and `_saveBusinessName` is
-                  // unreachable from its UI.
-                  if (kIsAdmin) ...[
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: 'businessName'.tr(),
-                        border: const OutlineInputBorder(),
+                    FutureBuilder<int>(
+                      future: _settings.getCatalogVersion(),
+                      builder: (context, snap) => Text(
+                        '${snap.data ?? 0}',
+                        style: Theme.of(context)
+                            .extension<AppTextStyles>()!
+                            .name(context),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _saveBusinessName,
-                      child: Text('save'.tr()),
-                    ),
-                  ] else
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _nameController,
-                      builder: (context, value, _) => Text(
-                        value.text,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (kIsAdmin) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('shopManagement'.tr(),
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _shopNameController,
-                    decoration: InputDecoration(
-                      labelText: 'businessName'.tr(),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _shopKeyController,
-                    decoration: InputDecoration(
-                      labelText: 'shopKey'.tr(),
-                      border: const OutlineInputBorder(),
-                      helperText: 'autoGenerated'.tr(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _addShop,
-                    child: Text('createShop'.tr()),
-                  ),
-                  const Divider(height: 24),
-                  if (_loadingShops)
-                    const Center(child: CircularProgressIndicator())
-                  else if (_shopKeys.isEmpty)
-                    Text('noShopsFound'.tr())
-                  else
-                    ..._shopKeys.map((key) {
-                      final isCurrent = key == _currentShopKey;
-                      return ListTile(
-                        title: Text(key),
-                        subtitle: Text(isCurrent ? 'currentShop'.tr() : '${'shopKey'.tr()}: $key'),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'use') _useShop(key);
-                            if (v == 'delete') _confirmDeleteShop(key);
-                          },
-                          itemBuilder: (_) => [
-                            PopupMenuItem<String>(value: 'use', child: Text('useShop'.tr())),
-                            PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('delete'.tr(), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  const Divider(height: 24),
-                  ListTile(
-                    leading: const Icon(Icons.login),
-                    title: Text('joinShop'.tr()),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ShopEntryScreen()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          ],
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('backup'.tr(), style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  // The listing and the history are the SHOPKEEPER's own data:
-                  // they live in the per-shop DB on that device, so the admin
-                  // flavor cannot produce them and says so instead.
-                  if (kIsAdmin)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        'Listing and history exports live on the shopkeeper app.',
-                      ),
-                    )
-                  else ...[
-                    if (widget.shopKey.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'No shop selected — shop-bound exports are unavailable',
-                        ),
-                      ),
-                    ListTile(
-                      leading: const Icon(Icons.list_alt),
-                      title: Text('exportListing'.tr()),
-                      onTap: _exportListing,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.receipt_long),
-                      title: Text('exportHistory'.tr()),
-                      onTap: _exportHistory,
                     ),
                   ],
-                  // The catalog is UNIVERSAL — the admin's artifact, never the
-                  // shopkeeper's. This guard is the whole point: an earlier
-                  // version of this card sat outside the kIsAdmin spread and
-                  // rendered the catalog action in both flavors.
-                  if (kIsAdmin)
-                    ListTile(
-                      leading: const Icon(Icons.inventory_2),
-                      title: Text('exportCatalog'.tr()),
-                      onTap: _exportCatalog,
-                    ),
+                ),
+                // The catalog is the ADMIN's artifact. This guard is the whole
+                // point: an earlier version of the backup card sat outside it
+                // and rendered the catalog action in both flavors.
+                if (kIsAdmin)
                   ListTile(
-                    leading: const Icon(Icons.download),
-                    title: Text('restoreBackup'.tr()),
-                    onTap: _importCatalog,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.inventory_2),
+                    title: Text('exportCatalog'.tr()),
+                    onTap: _exportCatalog,
                   ),
-                ],
-              ),
+              ],
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        // Build version: a compile-time dart-define, so no plugin and no
+        // package_info lookup (which would be a platform channel on every
+        // open).
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('appVersionLabel'.tr(),
+                      style: Theme.of(context).textTheme.bodyMedium),
+                ),
+                Text(
+                  const String.fromEnvironment('APP_VERSION',
+                      defaultValue: 'dev'),
+                  style: Theme.of(context).extension<AppTextStyles>()!.name(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // The admin's signer material (directory + import) lives HERE, in the
+        // Settings tab — the old Security tab is gone. Both cards are
+        // admin-only; the shopkeeper branch below renders no signer surface.
+        if (kIsAdmin) ...[
           const SizedBox(height: 12),
+          _SignersDirectoryCard(
+            refresh: _refresh,
+            settings: _settings,
+            rootPublicKey: widget.rootPublicKey,
+          ),
+          const SizedBox(height: 12),
+          _SignerKeyCard(
+            refresh: _refresh,
+            settings: _settings,
+            onImport: _importSignerKey,
+          ),
         ],
-      );
+        if (!kIsAdmin) ...[
+          const SizedBox(height: 12),
+          _businessNameCard(),
+          const SizedBox(height: 12),
+          _backupCard(),
+        ],
+      ],
+    );
     if (widget.embedded) return body;
     return Scaffold(
       appBar: AppBar(title: Text('settings'.tr())),
       body: body,
+    );
+  }
+
+  /// The stored provisioning value. Read-only on both flavors: on shopkeeper it
+  /// was recorded by the salesman in the signed QR, and on admin it is edited
+  /// per shop on the shop-info screen instead.
+  Widget _businessNameCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('businessName'.tr(),
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _nameController,
+              builder: (context, value, _) => Text(
+                value.text,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shop-bound exports. Shopkeeper only — the admin flavor has no shop DB on
+  /// this device, and the catalog export is the admin artifact (above).
+  Widget _backupCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('backup'.tr(), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            if (widget.shopKey.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'No shop selected — shop-bound exports are unavailable',
+                ),
+              ),
+            ListTile(
+              leading: const Icon(Icons.list_alt),
+              title: Text('exportListing'.tr()),
+              onTap: _exportListing,
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long),
+              title: Text('exportHistory'.tr()),
+              onTap: _exportHistory,
+            ),
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: Text('restoreBackup'.tr()),
+              onTap: _importCatalog,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Signers directory, loaded through the root-verified loader so a tampered
+/// `active_signer_id` or a scanned override cannot lie about who may sign.
+class _SignersDirectoryCard extends StatelessWidget {
+  const _SignersDirectoryCard({
+    required this.refresh,
+    required this.settings,
+    this.rootPublicKey,
+  });
+
+  final int refresh;
+  final SettingsService settings;
+  final List<int>? rootPublicKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Signers directory',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            FutureBuilder<SignersDirectory>(
+              key: ValueKey<int>(refresh),
+              future: SignersDirectoryLoader.load(
+                settings: settings,
+                rootPublicKey: rootPublicKey,
+              ),
+              builder: (context, snap) {
+                if (snap.hasError || !snap.hasData) {
+                  return const Text('Directory unavailable');
+                }
+                final dir = snap.data!;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('version: ${dir.version}'),
+                    const SizedBox(height: 8),
+                    ...dir.signers.map(
+                      (s) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.badge_outlined),
+                        title: Text(s.name.isEmpty ? s.id : s.name),
+                        subtitle: Text('${s.id} · ${s.role.name}'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Active signer + the import entry point (moved from the old Security tab).
+class _SignerKeyCard extends StatelessWidget {
+  const _SignerKeyCard({
+    required this.refresh,
+    required this.settings,
+    required this.onImport,
+  });
+
+  final int refresh;
+  final SettingsService settings;
+  final VoidCallback onImport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Signer key', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            FutureBuilder<String?>(
+              key: ValueKey<int>(refresh),
+              future: settings.getActiveSignerId(),
+              builder: (context, snap) => Text(
+                'Active signer: ${snap.data ?? 'none'}',
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: onImport,
+              icon: const Icon(Icons.key),
+              label: const Text('Import signer key'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

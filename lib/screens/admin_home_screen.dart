@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../admin_home_app.dart';
 import '../data/catalog_db.dart';
 import '../data/catalog_delta.dart';
 import '../data/catalog_sync_client.dart';
@@ -307,11 +306,6 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
                   clientFactory: widget.clientFactory,
                 ),
                 _catalogSection(),
-                _SecuritySection(
-                  refresh: _refresh,
-                  rootPublicKey: widget.rootPublicKey,
-                  push: _push,
-                ),
                 _settingsSection(),
               ],
             ),
@@ -322,7 +316,7 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
         selectedIndex: _tab,
         onDestinationSelected: (i) {
           setState(() => _tab = i);
-          // The active signer may have changed on the Security tab.
+          // The active signer may have changed on a pushed route.
           _refreshRole();
         },
         destinations: const [
@@ -330,8 +324,6 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
               icon: Icon(Icons.storefront), label: 'Shops'),
           NavigationDestination(
               icon: Icon(Icons.inventory_2), label: 'Catalog'),
-          NavigationDestination(
-              icon: Icon(Icons.security), label: 'Security'),
           NavigationDestination(
               icon: Icon(Icons.settings), label: 'Settings'),
         ],
@@ -382,8 +374,9 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
   }
 
   /// « Sync parameters » — the server pull/publish actions plus a live pill
-  /// reporting token presence and `GET /v1/health`. It lives at the top of the
-  /// Catalog tab: this is catalog/server state, not a settings page.
+  /// reporting token presence and the AUTHENTICATED catalog-version probe. It
+  /// lives at the top of the Catalog tab: this is catalog/server state, not a
+  /// settings page.
   Widget _syncParametersCard() {
     return Card(
       child: Padding(
@@ -404,25 +397,27 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
               ],
             ),
             const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.cloud_download),
-              title: Text(shopInfoTr(context, 'updateCatalog')),
-              subtitle: Text(shopInfoTr(context, 'updateCatalogHint')),
-              onTap: _updateCatalog,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.cloud_upload),
-              title: Text(shopInfoTr(context, 'publishChanges')),
-              subtitle: Text(shopInfoTr(context, 'publishChangesHint')),
-              onTap: _publishChanges,
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.sync),
-              title: Text(shopInfoTr(context, 'syncSettings')),
-              onTap: _openSyncSettings,
+            // One row of three actions — no ListTiles: the card sits above a
+            // paged list, so it must stay a single compact line.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  tooltip: shopInfoTr(context, 'updateCatalog'),
+                  icon: const Icon(Icons.cloud_download),
+                  onPressed: _updateCatalog,
+                ),
+                IconButton(
+                  tooltip: shopInfoTr(context, 'publishChanges'),
+                  icon: const Icon(Icons.cloud_upload),
+                  onPressed: _publishChanges,
+                ),
+                IconButton(
+                  tooltip: shopInfoTr(context, 'syncSettings'),
+                  icon: const Icon(Icons.sync),
+                  onPressed: _openSyncSettings,
+                ),
+              ],
             ),
           ],
         ),
@@ -430,9 +425,14 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
     );
   }
 
-  /// The Settings tab IS the settings page (no second tap).
+  /// The Settings tab IS the settings page (no second tap). The admin flavor
+  /// hosts the signers directory + import here (the former signers tab is gone).
   Widget _settingsSection() {
-    return const SettingsScreen(embedded: true, shopKey: '');
+    return SettingsScreen(
+      embedded: true,
+      shopKey: '',
+      rootPublicKey: widget.rootPublicKey,
+    );
   }
 }
 
@@ -471,8 +471,13 @@ class _ResolveDialog extends StatelessWidget {
   }
 }
 
-/// Small status pill for « Sync parameters »: reports whether a token is
-/// present and whether the server answers `GET /v1/health` with 200.
+/// Small status pill for « Sync parameters ».
+///
+/// Probes the AUTHENTICATED `GET /v1/catalog/version` endpoint (not a public
+/// health route): a 200 means the token is accepted AND the server is up,
+/// 401/403 means the token itself is the problem, and anything else — or a
+/// network error — means the server could not be reached. Distinguishing
+/// "rejected" from "unreachable" is the whole point: they need different fixes.
 class _SyncStatusPill extends StatefulWidget {
   const _SyncStatusPill({required this.refresh, required this.clientFactory});
 
@@ -483,10 +488,10 @@ class _SyncStatusPill extends StatefulWidget {
   State<_SyncStatusPill> createState() => _SyncStatusPillState();
 }
 
+enum _PillState { loading, unconfigured, missing, ok, rejected, down }
+
 class _SyncStatusPillState extends State<_SyncStatusPill> {
-  bool _loading = true;
-  bool _tokenPresent = false;
-  bool? _ok;
+  _PillState _state = _PillState.loading;
 
   @override
   void initState() {
@@ -501,37 +506,41 @@ class _SyncStatusPillState extends State<_SyncStatusPill> {
   }
 
   Future<void> _probe() async {
+    if (mounted) setState(() => _state = _PillState.loading);
     try {
       final config = await SyncConfig.load();
+      final urlPresent = config.url != null && config.url!.trim().isNotEmpty;
       final tokenPresent =
           config.token != null && config.token!.trim().isNotEmpty;
-      final urlPresent = config.url != null && config.url!.trim().isNotEmpty;
-      if (!tokenPresent || !urlPresent) {
+      if (!urlPresent) {
+        // SyncConfig.load falls back to the default host, so this only fires
+        // when the stored URL is explicitly empty.
         if (!mounted) return;
-        setState(() {
-          _tokenPresent = tokenPresent;
-          _ok = null;
-          _loading = false;
-        });
+        setState(() => _state = _PillState.unconfigured);
+        return;
+      }
+      if (!tokenPresent) {
+        if (!mounted) return;
+        setState(() => _state = _PillState.missing);
         return;
       }
       final client = await widget.clientFactory();
-      final code = await client.health();
-      if (!mounted) return;
-      setState(() {
-        _tokenPresent = true;
-        _ok = code == 200;
-        _loading = false;
-      });
+      try {
+        final code = await client.catalogVersionStatus();
+        if (!mounted) return;
+        setState(() => _state = switch (code) {
+              200 => _PillState.ok,
+              401 || 403 => _PillState.rejected,
+              _ => _PillState.down,
+            });
+      } finally {
+        client.close();
+      }
     } catch (_) {
-      // No readable prefs (or the probe failed before the request): report the
-      // safest state rather than hanging on "Checking…".
+      // Network error (or the probe failed before the request): the server
+      // could not be reached. Never hang on "Checking…".
       if (!mounted) return;
-      setState(() {
-        _tokenPresent = false;
-        _ok = null;
-        _loading = false;
-      });
+      setState(() => _state = _PillState.down);
     }
   }
 
@@ -541,26 +550,31 @@ class _SyncStatusPillState extends State<_SyncStatusPill> {
     final String label;
     final Color bg;
     final Color fg;
-    if (_loading) {
-      label = shopInfoTr(context, 'syncStatusChecking');
-      bg = scheme.surfaceContainerHighest;
-      fg = scheme.onSurfaceVariant;
-    } else if (!_tokenPresent) {
-      label = shopInfoTr(context, 'syncStatusNoToken');
-      bg = scheme.surfaceContainerHighest;
-      fg = scheme.onSurfaceVariant;
-    } else if (_ok == null) {
-      label = shopInfoTr(context, 'syncStatusNone');
-      bg = scheme.surfaceContainerHighest;
-      fg = scheme.onSurfaceVariant;
-    } else if (_ok!) {
-      label = shopInfoTr(context, 'syncStatusOk');
-      bg = scheme.primaryContainer;
-      fg = scheme.onSurface;
-    } else {
-      label = shopInfoTr(context, 'syncStatusDown');
-      bg = scheme.errorContainer;
-      fg = scheme.onErrorContainer;
+    switch (_state) {
+      case _PillState.loading:
+        label = shopInfoTr(context, 'syncStatusChecking');
+        bg = scheme.surfaceContainerHighest;
+        fg = scheme.onSurfaceVariant;
+      case _PillState.unconfigured:
+        label = shopInfoTr(context, 'syncStatusUnconfigured');
+        bg = scheme.surfaceContainerHighest;
+        fg = scheme.onSurfaceVariant;
+      case _PillState.missing:
+        label = shopInfoTr(context, 'syncStatusMissing');
+        bg = scheme.surfaceContainerHighest;
+        fg = scheme.onSurfaceVariant;
+      case _PillState.ok:
+        label = shopInfoTr(context, 'syncStatusOk');
+        bg = scheme.primaryContainer;
+        fg = scheme.onSurface;
+      case _PillState.rejected:
+        label = shopInfoTr(context, 'syncStatusRejected');
+        bg = scheme.errorContainer;
+        fg = scheme.onErrorContainer;
+      case _PillState.down:
+        label = shopInfoTr(context, 'syncStatusDown');
+        bg = scheme.errorContainer;
+        fg = scheme.onErrorContainer;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -693,96 +707,6 @@ class _SignerBanner extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _SecuritySection extends StatelessWidget {
-  const _SecuritySection({
-    required this.refresh,
-    this.rootPublicKey,
-    required this.push,
-  });
-
-  final int refresh;
-  final List<int>? rootPublicKey;
-  final _PushRoute push;
-
-  @override
-  Widget build(BuildContext context) {
-    final info = context.watch<SignersInfo>();
-    final settings = context.read<SettingsService>();
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Signers directory',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                FutureBuilder(
-                  future: info.directory,
-                  builder: (context, snap) {
-                    if (snap.hasError || !snap.hasData) {
-                      return const Text('Directory unavailable');
-                    }
-                    final dir = snap.data!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('version: ${dir.version}'),
-                        const SizedBox(height: 8),
-                        ...dir.signers.map(
-                          (s) => ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.badge_outlined),
-                            title: Text(s.name.isEmpty ? s.id : s.name),
-                            subtitle: Text('${s.id} · ${s.role.name}'),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Signer key',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                FutureBuilder<String?>(
-                  key: ValueKey<int>(refresh),
-                  future: settings.getActiveSignerId(),
-                  builder: (context, snap) => Text(
-                    'Active signer: ${snap.data ?? 'none'}',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () => push(
-                    SignerImportScreen(rootPublicKey: rootPublicKey),
-                  ),
-                  icon: const Icon(Icons.key),
-                  label: const Text('Import signer key'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

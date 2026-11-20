@@ -47,9 +47,11 @@ fi
 
 echo "building versionName=$V versionCode=$N (separate invocations)"
 "$FLUTTER" build apk --release --target-platform android-arm64 \
-  --flavor shopkeeper --build-number "$N" --build-name "$V" || exit 1
+  --flavor shopkeeper --dart-define=APP_VERSION="$V" \
+  --build-number "$N" --build-name "$V" || exit 1
 "$FLUTTER" build apk --release --target-platform android-arm64 \
-  --flavor admin --dart-define=ADMIN=true --build-number "$N" --build-name "$V" || exit 1
+  --flavor admin --dart-define=ADMIN=true --dart-define=APP_VERSION="$V" \
+  --build-number "$N" --build-name "$V" || exit 1
 
 SRC=build/app/outputs/flutter-apk
 SHOP_APK="myhanout-shopkeeper-v${V}-b${N}.apk"

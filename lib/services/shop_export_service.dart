@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:share_plus/share_plus.dart';
 
 import '../data/catalog_db.dart';
 import '../data/db.dart';
@@ -111,5 +114,19 @@ class ShopExportService {
       catalogFormat: 'catalog',
     };
     return '${slugs[format] ?? 'export'}_$shopKey.json';
+  }
+
+  /// Writes [json] to a temp file named after [format]/[shopKey] and hands it
+  /// to the system share sheet (WhatsApp / file manager).
+  ///
+  /// Shared by every export entry point so the artifact name and the share
+  /// call live in exactly one place. Throws on IO / share failure — the caller
+  /// owns the user-facing error message.
+  static Future<void> shareJson(String format, String shopKey, String json) async {
+    final temp = Directory.systemTemp.createTempSync('myhanout_');
+    final name = fileName(format, shopKey);
+    final file = File('${temp.path}/$name');
+    await file.writeAsString(json);
+    await Share.shareXFiles([XFile(file.path)], subject: name);
   }
 }

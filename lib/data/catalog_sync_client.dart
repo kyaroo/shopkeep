@@ -163,16 +163,34 @@ class CatalogSyncClient {
   }
 
   /// Registers a shop on the server (admin provisioning).
-  Future<void> registerShop(String shopKey, String businessName) async {
+  ///
+  /// The four contact fields are optional and only sent when present — the
+  /// server stores them verbatim and they are editable later through
+  /// `PATCH /v1/shops/{key}/info`.
+  Future<void> registerShop(
+    String shopKey,
+    String businessName, {
+    String? address,
+    String? city,
+    String? ownerName,
+    String? phone,
+  }) async {
+    final body = <String, dynamic>{
+      'shop_key': shopKey,
+      'business_name': businessName,
+      'device_id': deviceId,
+      if (address != null && address.trim().isNotEmpty)
+        'address': address.trim(),
+      if (city != null && city.trim().isNotEmpty) 'city': city.trim(),
+      if (ownerName != null && ownerName.trim().isNotEmpty)
+        'owner_name': ownerName.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+    };
     final resp = await _client
         .post(
           Uri.parse('$baseUrl/v1/shops'),
           headers: _headers,
-          body: jsonEncode({
-            'shop_key': shopKey,
-            'business_name': businessName,
-            'device_id': deviceId,
-          }),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 12));
     if (resp.statusCode == 401 || resp.statusCode == 403) {
@@ -247,13 +265,32 @@ class CatalogSyncClient {
     return ShopRow.fromMap(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
-  /// Public connectivity probe: `GET /v1/health` (no auth). Returns the status
-  /// code; throws on a network error. Used by the Sync parameters pill.
-  Future<int> health() async {
+  /// Authenticated probe of `GET /v1/catalog/version` (owner-token only).
+  ///
+  /// Returns the RAW HTTP status code rather than throwing on 401/403, because
+  /// the Sync-parameters pill needs to distinguish "token rejected" from
+  /// "server unreachable". Network errors DO propagate: the caller maps them
+  /// to the unreachable state.
+  Future<int> catalogVersionStatus() async {
     final resp = await _client
-        .get(Uri.parse('$baseUrl/v1/health'))
+        .get(Uri.parse('$baseUrl/v1/catalog/version'), headers: _headers)
         .timeout(const Duration(seconds: 10));
     return resp.statusCode;
+  }
+
+  /// `GET /v1/sync/status` — the token's own role (`owner` / `salesman`).
+  ///
+  /// This is what decides whether the business name is editable: the server
+  /// is the authority, and an unknown role is treated as read-only.
+  Future<String> syncRole() async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/sync/status'), headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    if (resp.statusCode != 200) {
+      throw SyncException('sync status ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return (data['role'] ?? '').toString();
   }
 
   /// `GET /v1/catalog/version` — the server's latest global generation.
