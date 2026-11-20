@@ -1,5 +1,11 @@
 # Next working session — myhanout shopkeeper
 
+> **SUPERSEDED 2026-11-20.** This pick-up guide describes the **b6 four-tab IA**
+> (Catalog/Shops/Security/Settings) and the state at `4bd339d` / 234 tests. The
+> admin shell is now **three tabs (Shops/Catalog/Settings)** at `fa2f5cd`+ with
+> 244 tests. Use `docs/backlog.md` (reconciled 2026-11-20) instead; this file is
+> kept only for history.
+
 Written 2026-11-19 after the b6 phase. The backlog (`docs/backlog.md`) is the
 source of truth for *what*; this file is *how to pick up cold*.
 

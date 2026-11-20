@@ -197,7 +197,8 @@ class _AdminSetupScreenState extends State<AdminSetupScreen> {
             onPressed: () async {
               // Best-effort server deletion.
               try {
-                final client = await SyncConfig.defaultClient();
+                final client =
+                    await (widget.clientFactory ?? SyncConfig.defaultClient)();
                 await client.deleteShop(key);
                 client.close();
               } catch (e) {
