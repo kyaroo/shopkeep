@@ -32,8 +32,8 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   flavor** on the salesman's phone — the admin flavor never routes into the POS.
 
 ## Mainline (verified 2026-11-20)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `fa2f5cd` (b9 phase;
-  committed, **not pushed**; tree clean).
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `395127b` (b9 phase +
+  cleanup; committed, **not pushed**; tree clean).
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **244/244**
   - `tool/verify_flavor_gates.sh` → PASS · `tool/verify_catalog_export_gate.sh` → ok
@@ -47,7 +47,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   - Gates held: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
     `CatalogRepository`, `CatalogSyncClientFactory`.
-- **catalog-server** `/home/hermes/perso/barcode-mapper`, `master` = `65be883`,
+- **catalog-server** `/home/hermes/perso/barcode-mapper`, `master` = `6ccafde`,
   **no git remote** (local-only by design); tree clean. `server/app.py` is the
   whole service.
   - `python3 -m unittest discover -s server/tests -v` → **49/49 OK**
@@ -89,6 +89,27 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - **Tests**: app 234 → **244**; server 43 → **49**; both flavor gates updated
   and green. Commits: app `fa2f5cd`, server `65be883`. Nothing pushed.
 
+## Done — cleanup (2026-11-20)
+- **Dead code:** deleted `lib/admin_main.dart` (a second, unused `AdminSetupApp`);
+  `lib/admin_home_app.dart` stays (used by `main.dart`, `app_router.dart`, tests).
+- **Last direct `SyncConfig.defaultClient()` call site removed** — shop deletion
+  in `admin_setup_screen.dart` now goes through the injected `clientFactory`
+  (wired from `AdminHomeApp`), matching every other screen/service.
+- **arm64 shopkeeper b9 rebuilt** (`--dart-define=APP_VERSION=0.1.0`,
+  versionCode 9) — `tool/verify_retired_secrets.sh` → 0 hits, forbidden hosts 0.
+  The phone deliverable now matches the admin build.
+- **SRV-1 closed:** `server/SIGNER_ROTATION.md` (founder, offline) — build a
+  root-signed envelope, ship `signers.json`, restart/recreate, verify the
+  fail-closed startup, distribute by QR; linked from `DEPLOY.md`.
+- **SRV-3 closed:** prod `CATALOG_PUBLIC_URL` → `https://catalog.myhanout.ma`;
+  verified `GET /v1/health` → `{"public_url":"https://catalog.myhanout.ma"}`.
+- **Hygiene:** deleted `C:\Users\M\Desktop\myhanout-admin-token.txt`;
+  `docs/session-plan-next.md` marked superseded (it describes the old four-tab
+  IA); MCP graph re-indexed — `shopkeeper` 2069 nodes / 6413 edges at `395127b`,
+  `catalog-server` 639 / 1237 at `6ccafde` (both verified by searching a symbol
+  unique to the new commits).
+- Commits: app `395127b`, server `6ccafde`.
+
 ## Done — earlier phases (condensed)
 - **b6 phase (2026-11-18/19):** global monotone catalog generation on the server
   (`catalog_state`, `catalog_changes`), owner-only `/v1/catalog/version` + paged
@@ -121,10 +142,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 | **GUI-3** | GUI test session for the **b9** IA | ~1 h (S), needs the user | **open, re-scoped 2026-11-20** — covers the **three tabs** (Shops/Catalog/Settings), the create form with contact fields, the per-shop menu, the icon-only sync card + pill, the shopkeeper flavor gate (no Shop info / no signer surface). Emulator needs an x64 admin build; the physical device needs an arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision |
 
 ## Open — server
-| ID | Item | Est. | State |
-|---|---|---|---|
-| **SRV-1** | Signer-directory rotation runbook (founder, offline) | 1 h (S) | **open** — the server verifies the roster at startup; document: build a new root-signed envelope (`tool/make_signers_qr.dart`) → ship to `server/signers.json` → `docker compose build` + `up -d` → rebuild the APK / show the QR. Root key held offline by the founder |
-| **SRV-3** | Prod `CATALOG_PUBLIC_URL` is the loopback default | 15 min (S) | **open** — only surfaced by `GET /v1/admin/catalog-open`; set to `https://catalog.myhanout.ma` if that field ever becomes user-facing |
+**None.** SRV-1 and SRV-3 were closed 2026-11-20 — see "Done — cleanup".
 
 ## Parked (not now — decisions 2026-11-15 / 2026-11-19)
 - **SRV-2** server serves the signers directory (owner-only `GET`) so devices can
