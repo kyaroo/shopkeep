@@ -96,16 +96,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// The universal catalog. **Admin only** — the catalog is the admin's
-  /// artifact, never the shopkeeper's. Metadata only, never photos.
-  Future<void> _exportCatalog() async {
-    await _shareJson(
-      ShopExportService.catalogFormat,
-      widget.shopKey,
-      await ShopExportService.catalogJson(),
-    );
-  }
-
   Future<void> _importCatalog() async {
     if (widget.shopKey.isEmpty) {
       _noShop();
@@ -208,16 +198,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-                // The catalog is the ADMIN's artifact. This guard is the whole
-                // point: an earlier version of the backup card sat outside it
-                // and rendered the catalog action in both flavors.
-                if (kIsAdmin)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.inventory_2),
-                    title: Text('exportCatalog'.tr()),
-                    onTap: _exportCatalog,
-                  ),
+                // The catalog EXPORT lives on the Catalog tab (admin-only);
+                // Settings shows the installed version only.
               ],
             ),
           ),

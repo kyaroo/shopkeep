@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../build_config.dart';
 import '../data/catalog_db.dart';
 import '../data/catalog_delta.dart';
 import '../data/catalog_sync_client.dart';
@@ -22,6 +23,7 @@ import '../screens/signer_import_screen.dart';
 import '../screens/sync_settings_dialog.dart';
 import '../services/catalog_publish_service.dart';
 import '../services/catalog_pull_service.dart';
+import '../services/shop_export_service.dart';
 import '../utils/shop_l10n.dart';
 
 /// A pushed route returning; all signer-related pushes go through this so the
@@ -378,9 +380,29 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
               icon: const Icon(Icons.qr_code_scanner),
               onPressed: _canPush ? _scanAdd : null,
             ),
+            // The universal catalog EXPORT — the admin's artifact, never the
+            // shopkeeper's. This `if (kIsAdmin)` is the source-level gate.
+            if (kIsAdmin)
+              IconButton(
+                tooltip: 'exportCatalog'.tr(),
+                icon: const Icon(Icons.save_alt),
+                onPressed: _exportCatalog,
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Export the universal catalog as JSON (metadata only, never photos).
+  ///
+  /// The catalog is universal, so the artifact carries no shop key; the
+  /// admin-only guard lives in [_catalogManagementCard].
+  Future<void> _exportCatalog() async {
+    await ShopExportService.shareJson(
+      ShopExportService.catalogFormat,
+      '',
+      await ShopExportService.catalogJson(),
     );
   }
 

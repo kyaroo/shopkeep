@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-screen=lib/screens/settings_screen.dart
+screen=lib/screens/admin_home_screen.dart
 
 awk '
   {
@@ -44,11 +44,11 @@ awk '
   }
 ' "$screen"
 
-# The catalog export must have exactly one call site: the guarded settings entry.
+# The catalog export must have exactly one call site: the guarded Catalog-tab entry.
 calls=$(grep -rn "catalogJson(" lib --include=*.dart | grep -v "shop_export_service.dart" | wc -l)
 if [ "$calls" -ne 1 ]; then
   echo "FAIL: expected exactly one catalogJson() call site, found $calls"
   grep -rn "catalogJson(" lib --include=*.dart
   exit 1
 fi
-echo "ok: catalogJson() has exactly one call site (the guarded settings entry)"
+echo "ok: catalogJson() has exactly one call site (the guarded Catalog-tab entry)"

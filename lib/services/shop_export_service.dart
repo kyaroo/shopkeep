@@ -113,7 +113,10 @@ class ShopExportService {
       historyFormat: 'history',
       catalogFormat: 'catalog',
     };
-    return '${slugs[format] ?? 'export'}_$shopKey.json';
+    final slug = slugs[format] ?? 'export';
+    final key = shopKey.trim();
+    // The catalog is universal: with no shop key the artifact is `catalog.json`.
+    return key.isEmpty ? '$slug.json' : '${slug}_$key.json';
   }
 
   /// Writes [json] to a temp file named after [format]/[shopKey] and hands it

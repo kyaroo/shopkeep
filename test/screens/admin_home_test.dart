@@ -251,6 +251,9 @@ void main() {
     expect(find.text('Catalog Management'), findsOneWidget);
     expect(find.byTooltip('Distribute catalog'), findsOneWidget);
     expect(find.byTooltip('Add product'), findsOneWidget);
+    // NOTE: the catalog-export button is behind `if (kIsAdmin)`, a compile-time
+    // const that is FALSE under `flutter test`; `tool/verify_catalog_export_gate.sh`
+    // pins it at source instead of here.
     expect(find.text('Manage catalog'), findsNothing,
         reason: 'the separate management screen is gone');
     expect(find.text('Export listing'), findsNothing,
@@ -335,6 +338,9 @@ void main() {
     expect(find.byTooltip('Update catalog'), findsNothing);
     expect(find.byTooltip('Publish changes'), findsNothing);
     expect(find.byTooltip('Sync settings'), findsNothing);
+    expect(find.byTooltip('Export catalog'), findsNothing,
+        reason: 'the catalog export moved to the Catalog tab');
+    expect(find.text('Export catalog'), findsNothing);
     expect(find.byType(SettingsScreen), findsOneWidget,
         reason: 'the settings body is embedded in the tab');
 
