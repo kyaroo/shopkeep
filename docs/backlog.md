@@ -32,19 +32,12 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   flavor** on the salesman's phone; the admin flavor opens a shop's POS only as
   an explicit, session-only detour (Shops tab → per-shop « Open shop »).
 
-## Mainline (verified 2026-11-20)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `395127b` (b9 phase +
-  cleanup; committed, **not pushed**; tree clean).
+## Mainline (verified 2026-11-20, end of session)
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `09a9de0` = `origin/main`
+  (tree clean, **pushed**).
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **244/244**
   - `tool/verify_flavor_gates.sh` → PASS · `tool/verify_catalog_export_gate.sh` → ok
-  - Latest artifact: **b9 x64 admin** (`--dart-define=ADMIN=true
-    --dart-define=APP_VERSION=0.1.0`, versionCode 9), sha256 `a28a962f…02f88e`,
-    installed + launched on `emulator-5555` (`mFocusedApp=com.myhanout.admin`,
-    no `FATAL`/`E/flutter` in logcat).
-  - **Not rebuilt since b9:** the **arm64 shopkeeper** APK (last kit = b6,
-    versionCode 6). `settings_screen.dart` and `catalog_sync_client.dart` are
-    shared, so a shopkeeper rebuild is due before the next kit.
   - Gates held: `screens → lib/data/db.dart` = **0** imports; typed client↔UI
     contract; paged inventory (50/page); injected `SettingsService`,
     `CatalogRepository`, `CatalogSyncClientFactory`.
@@ -52,11 +45,46 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   **no git remote** (local-only by design); tree clean. `server/app.py` is the
   whole service.
   - `python3 -m unittest discover -s server/tests -v` → **49/49 OK**
-  - Prod `barcode-mapper-catalog` **recreated from the new image** and verified
-    live: `health=200`; startup `signers directory v2: 3 signer(s)`;
-    `/v1/sync/status` → `role=owner`; `/v1/catalog/version` → 200; `PATCH
-    …/info` (own name) → 200; bogus token → 403; shops `hamidyougo` +
-    `hanoutihamid` intact. Prod + test on hardened `docker compose`.
+  - Prod `barcode-mapper-catalog` running the new image, verified live:
+    `health=200`; `signers directory v2: 3 signer(s)`; `/v1/sync/status` →
+    `role=owner`; `/v1/catalog/version` → 200; `PATCH …/info` (own name) → 200;
+    bogus token → 403; `/v1/health` → `public_url=https://catalog.myhanout.ma`;
+    shops `hamidyougo` + `hanoutihamid` intact.
+
+## Artifacts (b13, versionCode 13, versionName 0.1.0)
+| Build | File | Where |
+|---|---|---|
+| x64 admin | `myhanout-admin-v0.1.0-b13-x64.apk` (sha256 `6d775d27…2890`) | installed + launched on `emulator-5555`, no `FATAL`/`E/flutter` |
+| arm64 admin | `myhanout-admin-v0.1.0-b13.apk` (sha256 `f7c8735f…cea568`) | `C:\Users\M\Desktop\` (physical device) |
+| arm64 shopkeeper | `myhanout-shopkeeper-v0.1.0-b13.apk` | `C:\Users\M\Desktop\` (physical device) |
+
+- Both arm64 APKs: retired-secret grep **0 hits**, forbidden hosts **0**.
+- No **b13 kit** yet (`release/kits/myhanout-v0.1.0-b13/`) — run
+  `tool/build_release_bundle.sh 13` when a kit is wanted.
+
+## Done — b10–b13 (2026-11-20)
+- **Catalog Management row** (Catalog tab): « Distribute catalog » and
+  « Add product » folded from two `FilledButton.icon`s into one card row with
+  the heading **Catalog Management** + two icon buttons (tooltips keep the
+  labels) — the list gets its vertical budget back.
+- **Catalog export moved**: off the Settings catalog-version card onto the
+  Catalog Management row (third icon, behind `if (kIsAdmin)`);
+  `ShopExportService.fileName` now emits `catalog.json` when there is no shop
+  key (the catalog is universal) instead of `catalog_.json`;
+  `verify_catalog_export_gate.sh` re-pointed at `admin_home_screen.dart`.
+- **Per-shop « Open shop »**: the Shops tab menu opens *that* shop's POS — it
+  records the shop as current and flips the new `AppState.posMode`; the router
+  swaps the shell for `MyhanoutApp`. Session-only: `posMode` is in-memory, so a
+  cold start returns to the admin shell, and a kIsAdmin-only « Back to admin »
+  in the POS app bar returns on demand. `verify_flavor_gates.sh` gained a
+  section pinning it (posMode guard, shell as default, back action present).
+- **App icon**: `LogoBW.png` (1080×1080 RGBA, artwork ~87% of frame) → adaptive
+  foreground + monochrome at 1080² with the artwork in the 66% safe zone, and
+  legacy mipmaps 48/72/96/144/192 with the warm-plaster background
+  (`#F6F1E7`) baked. Verified present in the built APK (two 1080² + all five
+  densities).
+- **b13 artifacts** built and staged (see the artifact table above).
+- Commits: `d314a3d`, `7f4d58c`, `a0a80ee`, `09a9de0` — all pushed.
 
 ## Done — b9 phase (2026-11-20)
 - **Admin IA → three tabs** (Shops / Catalog / Settings); the Security tab is
@@ -140,7 +168,7 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 |---|---|---|---|
 | **GUI-1** | Sale retry on device + clean up the orphan sales | 30 min (S) | **open, needs the user** — the deadlock fix is installed; the user clicks Caisse → add → « Valider la vente ». The two hung attempts each committed a sale row with **no stock deduction**; either ignore them in Historique or wipe `hanouti` and re-provision the 20 items |
 | **TEST-2** | Device GUI smoke pass on a **release** build — make it a release gate | 1 h (S), recurring | **open** — the suite cannot catch device-only defects (FIX-1, FIX-3, FIX-4 all shipped green). Script: cold-launch → apply a signed listing + delta over `content://` → validate a sale (logcat `sale completed: …`) → Inventaire in fr/en/ar → Paramètres → Sauvegarde. Needs the user to click; outcome read from logcat |
-| **GUI-3** | GUI test session for the **b9** IA | ~1 h (S), needs the user | **open, re-scoped 2026-11-20** — covers the **three tabs** (Shops/Catalog/Settings), the create form with contact fields, the per-shop menu (now incl. « Open shop » → POS detour + « Back to admin »), the icon-only sync card + pill, the shopkeeper flavor gate (no Shop info / no signer surface). Emulator needs an x64 admin build; the physical device needs an arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision |
+| **GUI-3** | GUI test session for the **b13** IA | ~1 h (S), needs the user | **open, re-scoped 2026-11-20** — covers the **three tabs** (Shops/Catalog/Settings), the create form with contact fields, the per-shop menu (now incl. « Open shop » → POS detour + « Back to admin »), the icon-only sync card + pill, the shopkeeper flavor gate (no Shop info / no signer surface). Emulator needs an x64 admin build; the physical device needs an arm64 shopkeeper installed (MIUI: Install via USB). No assistant vision |
 
 ## Open — server
 **None.** SRV-1 and SRV-3 were closed 2026-11-20 — see "Done — cleanup".
@@ -193,13 +221,18 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
 - The delta is **universal** — never bind it to a shop.
 - Shopkeeper must have zero network code outside `kIsAdmin`.
 - `assets/catalog_seed.db` is 60 MB — above the 50 MB recommendation.
-- `SyncConfig.defaultClient()` is still called directly in
-  `admin_setup_screen` (shop deletion); the other screens/services take an
-  injected `clientFactory`. Make the shop-deletion path injectable too.
+- Every server call goes through an injected `clientFactory`; do not reintroduce
+  a direct `SyncConfig.defaultClient()` call site in a screen (the last one —
+  shop deletion — was removed 2026-11-20).
 - **An embedded screen must not `Navigator.pop()` unconditionally** — it pops
   the shell's only route and blacks the screen (this was « Use this shop »).
 - **An owner-only route answers 403 for a *valid* salesman token.** Label it as
   "may push the catalog", or probe an any-role route.
+- **Launcher icons are generated, not hand-edited.** `python3
+  tool/gen_launcher_icons.py <logo.png>` regenerates the adaptive foreground /
+  monochrome and the five legacy mipmaps; the background MUST stay in sync with
+  `res/values/colors.xml`. Verify by checking the APK still carries the sizes
+  (`unzip -l` shows them as obfuscated `res/*.png`).
 - **The app version needs `--dart-define=APP_VERSION`** on every build; without
   it the Settings row reads `dev`.
 - **A green suite does not mean the app works.** FIX-1 (every sale hung) and
