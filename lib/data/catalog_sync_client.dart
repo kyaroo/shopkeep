@@ -247,6 +247,15 @@ class CatalogSyncClient {
     return ShopRow.fromMap(jsonDecode(resp.body) as Map<String, dynamic>);
   }
 
+  /// Public connectivity probe: `GET /v1/health` (no auth). Returns the status
+  /// code; throws on a network error. Used by the Sync parameters pill.
+  Future<int> health() async {
+    final resp = await _client
+        .get(Uri.parse('$baseUrl/v1/health'))
+        .timeout(const Duration(seconds: 10));
+    return resp.statusCode;
+  }
+
   /// `GET /v1/catalog/version` — the server's latest global generation.
   /// Owner-token only; the caller sends its stored token.
   Future<int> catalogVersion() async {

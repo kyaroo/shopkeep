@@ -21,6 +21,7 @@ import 'package:myhanout/screens/capture_dialog.dart';
 import 'package:myhanout/screens/settings_screen.dart';
 import 'package:myhanout/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/fake_settings.dart';
 import '../helpers/signing_trust.dart';
@@ -145,6 +146,7 @@ void main() {
   late FakeSettingsService settings;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     trust = await SigningTrust.create();
     settings = FakeSettingsService()
       ..signersEnvelope = trust.directory.envelope;
@@ -153,6 +155,12 @@ void main() {
 
   testWidgets('AdminHome IA: catalog buttons, per-shop menu, role gating, '
       'settings actions', (tester) async {
+    // A phone-sized surface: the sync card + list must fit without overflow.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final navKey = GlobalKey<NavigatorState>();
     final pullClient = _FakePullClient(
       [
@@ -211,7 +219,16 @@ void main() {
     );
     await settle(tester);
 
-    // --- Catalog tab: the paged list is the tab; one global distribute action.
+    // --- Catalog tab: « Sync parameters » on top, then the paged list and the
+    // one global distribute action.
+    await tester.tap(find.text('Catalog'));
+    await settle(tester);
+    expect(find.text('Sync parameters'), findsOneWidget);
+    expect(find.text('Update catalog'), findsOneWidget);
+    expect(find.text('Publish changes'), findsOneWidget);
+    expect(find.text('Sync settings'), findsOneWidget);
+    expect(find.text('Token missing'), findsOneWidget,
+        reason: 'no token in prefs → the pill reports it');
     expect(find.text('Café Test'), findsOneWidget);
     expect(find.text('Distribute catalog'), findsOneWidget);
     expect(find.text('Add product'), findsOneWidget);
@@ -280,19 +297,20 @@ void main() {
     expect(find.byType(CaptureDialog), findsNothing,
         reason: 'a salesman cannot edit the catalog');
 
-    // --- Settings tab surfaces the three catalog actions.
+    // --- Settings tab is the settings body only; the sync actions moved to
+    // the Catalog tab.
     await tester.tap(find.text('Settings'));
     await settle(tester);
-    expect(find.text('Update catalog'), findsOneWidget);
-    expect(find.text('Publish changes'), findsOneWidget);
-    expect(find.text('Sync settings'), findsOneWidget);
-    expect(find.text('Open settings'), findsNothing,
-        reason: 'the Settings tab IS the settings page now');
+    expect(find.text('Update catalog'), findsNothing);
+    expect(find.text('Publish changes'), findsNothing);
+    expect(find.text('Sync settings'), findsNothing);
     expect(find.byType(SettingsScreen), findsOneWidget,
         reason: 'the settings body is embedded in the tab');
 
-    // --- « Update catalog »: confirmation shows local -> latest + counts,
-    // then one atomic apply advances the local generation.
+    // --- « Update catalog » (Catalog tab): confirmation shows local -> latest
+    // + counts, then one atomic apply advances the local generation.
+    await tester.tap(find.text('Catalog'));
+    await settle(tester);
     settings.catalogVersion = 1;
     await tester.tap(find.text('Update catalog'));
     await settle(tester, 10);

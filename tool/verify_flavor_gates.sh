@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Source guard for the two SettingsScreen flavor gates.
+# Source guard for the SettingsScreen flavor gates.
 #
 # `kIsAdmin` is a compile-time const, so no test can flip it inside one
 # isolate. The shopkeeper view is asserted by
 # test/screens/settings_flavor_gate_test.dart; this guard pins the SOURCE so an
 # accidental move outside a compile-time branch is caught without rebuilding
 # an APK:
-#   1. the Security card / "Import signer key" entry is inside `if (kIsAdmin)`;
+#   1. the Settings body has NO signing surface at all — signer material
+#      (import / key / directory) lives on the admin Security tab, so a
+#      regression that reintroduces an import entry here is caught;
 #   2. the editable business-name TextField and Save button are behind
 #      `if (kIsAdmin)`, with the shopkeeper branch rendering the stored value
 #      as read-only text.
@@ -18,42 +20,13 @@ cd "$(dirname "$0")/.."
 screen=lib/screens/settings_screen.dart
 [ -f "$screen" ] || { echo "FAIL: $screen not found"; exit 1; }
 
-echo "-- Security card (no signing surface on shopkeeper) --"
-awk -v guard="if (kIsAdmin)" \
-    -v title="Text('Security'" \
-    -v entry="Text('Import signer key')" '
-  {
-    text[NR] = $0
-    if (index($0, guard) > 0) lastGuard = NR
-    guardAt[NR] = lastGuard
-  }
-  END {
-    bad = 0; seenTitle = 0; seenEntry = 0
-    for (i = 1; i <= NR; i++) {
-      if (index(text[i], title) > 0) {
-        seenTitle = 1; g = guardAt[i]; d = i - g
-        if (g == 0 || d > 10) {
-          printf "FAIL: Security card at line %d is NOT inside a kIsAdmin branch (nearest guard line %d, distance %d)\n", i, g, d
-          bad = 1
-        } else {
-          printf "ok: Security card at line %d is guarded (if (kIsAdmin) at line %d, distance %d)\n", i, g, d
-        }
-      }
-      if (index(text[i], entry) > 0) {
-        seenEntry = 1; g = guardAt[i]; d = i - g
-        if (g == 0 || d > 20) {
-          printf "FAIL: Import signer key at line %d is NOT inside a kIsAdmin branch (nearest guard line %d, distance %d)\n", i, g, d
-          bad = 1
-        } else {
-          printf "ok: Import signer key at line %d is guarded (if (kIsAdmin) at line %d, distance %d)\n", i, g, d
-        }
-      }
-    }
-    if (!seenTitle) { print "FAIL: Security card title not found"; bad = 1 }
-    if (!seenEntry) { print "FAIL: Import signer key entry not found"; bad = 1 }
-    exit bad ? 1 : 0
-  }
-' "$screen"
+echo "-- No signing surface in Settings (signer material is on the Security tab) --"
+hits="$(grep -n 'SignerImportScreen\|Import signer key\|Icons\.key' "$screen" || true)"
+if [ -n "$hits" ]; then
+  printf 'FAIL: %s still exposes signer import material:\n%s\n' "$screen" "$hits"
+  exit 1
+fi
+echo "ok: $screen exposes no signer import surface"
 
 echo "-- Business name (read-only on shopkeeper) --"
 awk -v guard="if (kIsAdmin)" \
@@ -100,4 +73,4 @@ awk -v guard="if (kIsAdmin)" \
   }
 ' "$screen"
 
-echo "PASS: both SettingsScreen flavor gates are intact in $screen"
+echo "PASS: the SettingsScreen flavor gates are intact in $screen"

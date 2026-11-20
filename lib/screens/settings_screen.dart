@@ -10,7 +10,6 @@ import '../services/shop_export_service.dart';
 import '../data/shop_provisioning_service.dart';
 import '../data/import_export.dart';
 import '../screens/shop_entry_screen.dart';
-import '../screens/signer_import_screen.dart';
 import '../app_state.dart';
 import '../utils/slug.dart';
 import '../build_config.dart';
@@ -534,35 +533,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // Security: where a founder/admin signer seed is installed on a fresh
-          // admin device (decision 4a). No seed is displayed or logged here.
-          // Shopkeeper has no signing surface at all: the whole card is gated.
-          if (kIsAdmin)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Security',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      leading: const Icon(Icons.key),
-                      title: const Text('Import signer key'),
-                      subtitle: const Text('QR or .myhanoutseed file'),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SignerImportScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       );
     if (widget.embedded) return body;

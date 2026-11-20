@@ -231,10 +231,12 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
   Future<void> _openSyncSettings() async {
     final config = await SyncConfig.load();
     if (!mounted) return;
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (_) => SyncSettingsDialog(config: config),
     );
+    // The URL/token may have changed — re-probe the pill and refresh the chip.
+    if (mounted) setState(() => _refresh++);
   }
 
   /// The host owns the add/scan action for the embedded catalog list.
@@ -299,12 +301,12 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
             child: IndexedStack(
               index: _tab,
               children: [
-                _catalogSection(),
                 AdminSetupScreen(
                   embedded: true,
                   rootPublicKey: widget.rootPublicKey,
                   clientFactory: widget.clientFactory,
                 ),
+                _catalogSection(),
                 _SecuritySection(
                   refresh: _refresh,
                   rootPublicKey: widget.rootPublicKey,
@@ -325,9 +327,9 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
         },
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.inventory_2), label: 'Catalog'),
-          NavigationDestination(
               icon: Icon(Icons.storefront), label: 'Shops'),
+          NavigationDestination(
+              icon: Icon(Icons.inventory_2), label: 'Catalog'),
           NavigationDestination(
               icon: Icon(Icons.security), label: 'Security'),
           NavigationDestination(
@@ -337,12 +339,14 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
     );
   }
 
-  /// The Catalog tab IS the paged local catalog list (embedded [BrowsePage]).
-  /// One global distribution action lives here; per-row edit/delete are folded
-  /// into the list and gated by the founder/admin role.
+  /// The Catalog tab: « Sync parameters » (pull / publish / server config) on
+  /// top, then the distribution actions and the paged local catalog list
+  /// (embedded [BrowsePage]); per-row edit/delete are folded into the list and
+  /// gated by the founder/admin role.
   Widget _catalogSection() {
     return Column(
       children: [
+        _syncParametersCard(),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: Wrap(
@@ -377,53 +381,58 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
     );
   }
 
-  /// The Settings tab: catalog update / publish / sync settings, plus the full
-  /// settings screen (shops, backups, signer import).
-  Widget _settingsSection() {
-    // The tab IS the settings page: the admin sync actions on top, then the
-    // full settings body embedded (no second "Open settings" tap).
-    return Column(
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  /// « Sync parameters » — the server pull/publish actions plus a live pill
+  /// reporting token presence and `GET /v1/health`. It lives at the top of the
+  /// Catalog tab: this is catalog/server state, not a settings page.
+  Widget _syncParametersCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(shopInfoTr(context, 'settings'),
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.cloud_download),
-                  title: Text(shopInfoTr(context, 'updateCatalog')),
-                  subtitle:
-                      Text(shopInfoTr(context, 'updateCatalogHint')),
-                  onTap: _updateCatalog,
+                Expanded(
+                  child: Text(shopInfoTr(context, 'syncParameters'),
+                      style: Theme.of(context).textTheme.titleLarge),
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.cloud_upload),
-                  title: Text(shopInfoTr(context, 'publishChanges')),
-                  subtitle:
-                      Text(shopInfoTr(context, 'publishChangesHint')),
-                  onTap: _publishChanges,
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.sync),
-                  title: Text(shopInfoTr(context, 'syncSettings')),
-                  onTap: _openSyncSettings,
+                _SyncStatusPill(
+                  refresh: _refresh,
+                  clientFactory: _clientFactory,
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.cloud_download),
+              title: Text(shopInfoTr(context, 'updateCatalog')),
+              subtitle: Text(shopInfoTr(context, 'updateCatalogHint')),
+              onTap: _updateCatalog,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.cloud_upload),
+              title: Text(shopInfoTr(context, 'publishChanges')),
+              subtitle: Text(shopInfoTr(context, 'publishChangesHint')),
+              onTap: _publishChanges,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.sync),
+              title: Text(shopInfoTr(context, 'syncSettings')),
+              onTap: _openSyncSettings,
+            ),
+          ],
         ),
-        const Expanded(
-          child: SettingsScreen(embedded: true, shopKey: ''),
-        ),
-      ],
+      ),
     );
+  }
+
+  /// The Settings tab IS the settings page (no second tap).
+  Widget _settingsSection() {
+    return const SettingsScreen(embedded: true, shopKey: '');
   }
 }
 
@@ -458,6 +467,114 @@ class _ResolveDialog extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Small status pill for « Sync parameters »: reports whether a token is
+/// present and whether the server answers `GET /v1/health` with 200.
+class _SyncStatusPill extends StatefulWidget {
+  const _SyncStatusPill({required this.refresh, required this.clientFactory});
+
+  final int refresh;
+  final CatalogSyncClientFactory clientFactory;
+
+  @override
+  State<_SyncStatusPill> createState() => _SyncStatusPillState();
+}
+
+class _SyncStatusPillState extends State<_SyncStatusPill> {
+  bool _loading = true;
+  bool _tokenPresent = false;
+  bool? _ok;
+
+  @override
+  void initState() {
+    super.initState();
+    _probe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SyncStatusPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refresh != widget.refresh) _probe();
+  }
+
+  Future<void> _probe() async {
+    try {
+      final config = await SyncConfig.load();
+      final tokenPresent =
+          config.token != null && config.token!.trim().isNotEmpty;
+      final urlPresent = config.url != null && config.url!.trim().isNotEmpty;
+      if (!tokenPresent || !urlPresent) {
+        if (!mounted) return;
+        setState(() {
+          _tokenPresent = tokenPresent;
+          _ok = null;
+          _loading = false;
+        });
+        return;
+      }
+      final client = await widget.clientFactory();
+      final code = await client.health();
+      if (!mounted) return;
+      setState(() {
+        _tokenPresent = true;
+        _ok = code == 200;
+        _loading = false;
+      });
+    } catch (_) {
+      // No readable prefs (or the probe failed before the request): report the
+      // safest state rather than hanging on "Checking…".
+      if (!mounted) return;
+      setState(() {
+        _tokenPresent = false;
+        _ok = null;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final String label;
+    final Color bg;
+    final Color fg;
+    if (_loading) {
+      label = shopInfoTr(context, 'syncStatusChecking');
+      bg = scheme.surfaceContainerHighest;
+      fg = scheme.onSurfaceVariant;
+    } else if (!_tokenPresent) {
+      label = shopInfoTr(context, 'syncStatusNoToken');
+      bg = scheme.surfaceContainerHighest;
+      fg = scheme.onSurfaceVariant;
+    } else if (_ok == null) {
+      label = shopInfoTr(context, 'syncStatusNone');
+      bg = scheme.surfaceContainerHighest;
+      fg = scheme.onSurfaceVariant;
+    } else if (_ok!) {
+      label = shopInfoTr(context, 'syncStatusOk');
+      bg = scheme.primaryContainer;
+      fg = scheme.onSurface;
+    } else {
+      label = shopInfoTr(context, 'syncStatusDown');
+      bg = scheme.errorContainer;
+      fg = scheme.onErrorContainer;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: fg,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
     );
   }
 }
