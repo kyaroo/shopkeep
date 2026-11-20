@@ -248,8 +248,9 @@ void main() {
     expect(find.text('Token missing'), findsOneWidget,
         reason: 'no token in prefs → the pill reports it');
     expect(find.text('Café Test'), findsOneWidget);
-    expect(find.text('Distribute catalog'), findsOneWidget);
-    expect(find.text('Add product'), findsOneWidget);
+    expect(find.text('Catalog Management'), findsOneWidget);
+    expect(find.byTooltip('Distribute catalog'), findsOneWidget);
+    expect(find.byTooltip('Add product'), findsOneWidget);
     expect(find.text('Manage catalog'), findsNothing,
         reason: 'the separate management screen is gone');
     expect(find.text('Export listing'), findsNothing,
@@ -267,8 +268,8 @@ void main() {
     // Export history / Delete (and no "Use this shop").
     await tester.tap(find.text('Shops'));
     await settle(tester);
-    expect(find.text('Distribute catalog'), findsNothing);
-    expect(find.text('Add product'), findsNothing);
+    expect(find.byTooltip('Distribute catalog'), findsNothing);
+    expect(find.byTooltip('Add product'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.more_vert));
     await settle(tester, 10);

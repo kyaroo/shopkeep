@@ -339,28 +339,7 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
     return Column(
       children: [
         _syncParametersCard(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _push(CatalogPushScreen(
-                  clientFactory: _clientFactory,
-                  rootPublicKey: widget.rootPublicKey,
-                )),
-                icon: const Icon(Icons.share),
-                label: Text(shopInfoTr(context, 'catalogDistribute')),
-              ),
-              FilledButton.icon(
-                onPressed: _canPush ? _scanAdd : null,
-                icon: const Icon(Icons.qr_code_scanner),
-                label: Text(shopInfoTr(context, 'catalogAddProduct')),
-              ),
-            ],
-          ),
-        ),
+        _catalogManagementCard(),
         const Divider(height: 1),
         Expanded(
           child: BrowsePage(
@@ -370,6 +349,38 @@ class _AdminHomeState extends State<AdminHome> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+
+  /// « Catalog Management » — the two catalog-wide actions folded onto ONE row
+  /// with their heading, so they stop eating the list's vertical budget (same
+  /// shape as the sync-parameters card above).
+  Widget _catalogManagementCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(shopInfoTr(context, 'catalogManagement'),
+                  style: Theme.of(context).textTheme.titleLarge),
+            ),
+            IconButton(
+              tooltip: shopInfoTr(context, 'catalogDistribute'),
+              icon: const Icon(Icons.share),
+              onPressed: () => _push(CatalogPushScreen(
+                clientFactory: _clientFactory,
+                rootPublicKey: widget.rootPublicKey,
+              )),
+            ),
+            IconButton(
+              tooltip: shopInfoTr(context, 'catalogAddProduct'),
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: _canPush ? _scanAdd : null,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
