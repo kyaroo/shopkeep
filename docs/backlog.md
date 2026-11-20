@@ -29,8 +29,8 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
   of truth; the shopkeeper keeps a local copy.
 
 ## Mainline (verified)
-- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` (b6 phase uncommitted;
-  nothing pushed).
+- **shopkeeper** `/home/hermes/perso/shopkeeper`, `main` = `origin/main` =
+  `58713c6` (b6 phase committed + pushed; tree clean).
   - `flutter analyze` → **No issues found!**
   - `flutter test` → **234/234**
   - Latest kit **b6** (2026-11-19, versionCode 6): admin + shopkeeper, both
@@ -42,9 +42,10 @@ Estimates: single developer, hours (S ≤2h · M 3–5h · L 8–20h).
     contract; paged inventory (50/page); injected `SettingsService`,
     `CatalogRepository`, `CatalogSyncClientFactory`; `theme.dart` and
     `inventory_screen.dart` split.
-- **catalog-server** `/home/hermes/perso/barcode-mapper`, `master` = `a90b563`,
-  **no git remote** (local-only by design). `server/app.py` is the whole
-  service. Prod container `barcode-mapper-catalog` recreated 2026-11-15.
+- **catalog-server** `/home/hermes/perso/barcode-mapper`, `master` = `f64d8e9`,
+  **no git remote** (local-only by design); tree clean. `server/app.py` is the
+  whole service. Prod + test run on hardened `docker compose` (both healthy);
+  live shops `hamidyougo` (v1) and `hanoutihamid` (v1), global catalog version 1.
 
 ## Done — phase 2 close-out (2026-11-17)
 - **B7** admin listing export (`ListingPushScreen`) — the delivery loop is wired.
@@ -207,3 +208,12 @@ photos), applied over `content://` from signed artifacts.
   catalog-export bug was a card placed one `],` too late.
 - **Commit messages:** repeated `-m` flags; a heredoc is on the user's
   denied-command list.
+- **Both compose files share project `server`** → each reports the other as an
+  orphan; never `down --remove-orphans` on one.
+- **`app.py` is baked into the image** (no bind mount) → code changes need
+  `docker compose build` + `up -d`, not a restart.
+- **`release/` is git-ignored** (812 MB of APKs; reproducible from source).
+- **The test volume can go root-owned** → `attempt to write a readonly database`;
+  fix with `docker exec -u root barcode-mapper-catalog-test chown -R 10001:999 /data`.
+- **Code-graph MCP: use the fresh slugs** `shopkeeper` (2016 nodes) and
+  `catalog-server` (305); the long-name duplicates are stale and undeletable.
